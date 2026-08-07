@@ -663,7 +663,13 @@ export async function handleV2Route(
 
 async function handleConversationAdd(body: unknown, auth: V2AuthContext, requestId: string, deps: V2RouterDeps): Promise<ApiResponseEnvelope> {
   const parsed = conversationAddRequestSchema.safeParse(body);
-  if (!parsed.success) return errorEnvelope(400, formatZodError(parsed.error), requestId);
+  if (!parsed.success) {
+    // Log the validation reason server-side too — the 400 envelope carries it
+    // to the client, but without this the gateway log only showed
+    // "status=400 duration=1ms" with no explanation, making diagnosis hard.
+    deps.logger.warn(`${TAG} /conversation/add rejected (400): ${formatZodError(parsed.error)}`);
+    return errorEnvelope(400, formatZodError(parsed.error), requestId);
+  }
   const { session_id, messages } = parsed.data;
 
   // Enforce three-dim isolation. user_id / agent_id come from request body
