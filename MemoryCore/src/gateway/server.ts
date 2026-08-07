@@ -124,6 +124,31 @@ import { parsePipelineTimerMember } from "../core/state/timer-member.js";
 const TAG = "[tdai-gateway]";
 const VERSION = "0.1.0";
 
+/**
+ * Memory data-plane paths that vscode-acp's MemoryHttpClient calls during
+ * session/prompt recall + post-turn capture. Used to gate [mem-perf] timing
+ * so only the recall/capture lifecycle is logged, not every /v3 route.
+ */
+const MEM_TIMING_PATHS = new Set<string>([
+  "/v3/atomic/search",
+  "/v3/core/read",
+  "/v3/scenario/ls",
+  "/v3/conversation/add",
+]);
+
+/**
+ * Extract the URL pathname (without query string) from a raw request URL.
+ * Returns null when the URL is missing/malformed, so callers can gate cleanly.
+ */
+function pathnameOf(rawUrl: string | undefined): string | null {
+  if (!rawUrl) return null;
+  try {
+    return new URL(rawUrl, "http://localhost").pathname;
+  } catch {
+    return null;
+  }
+}
+
 // ============================
 // Console logger (for standalone gateway — no OpenClaw logger available)
 // ============================
@@ -675,6 +700,38 @@ export class TdaiGateway {
           }
         });
       }
+
+      // ── Memory recall/capture endpoint timing ──
+      // Mirrors the /v3/skill/ perf block above, but for the L0–L3 data-plane
+      // paths that vscode-acp's MemoryHttpClient calls during session/prompt
+      // injection (/v3/atomic/search, /v3/core/read, /v3/scenario/ls,
+      // /v3/conversation/add). Emits a [mem-perf] line on response finish so
+      // server-side latency can be correlated with the client-side
+      // "Memory HTTP ..." logs in the VS Code 'ACP Client' channel.
+      // Gated to these paths only — keeps the meta/skill/main log lines clean.
+      const memPath = pathnameOf(req.url);
+      const isMemRecall = memPath !== null && MEM_TIMING_PATHS.has(memPath);
+      if (isMemRecall) {
+        const memT0 = Date.now();
+        const src = `${req.socket.remoteAddress ?? "?"}:${req.socket.remotePort ?? "?"}`;
+        this.logger.info(
+          `[mem-perf] req.enter t=${memT0} method=${req.method ?? "?"} path=${memPath} src=${src}`,
+        );
+        res.on("finish", () => {
+          const now = Date.now();
+          this.logger.info(
+            `[mem-perf] req.finish t=${now} total=${now - memT0}ms status=${res.statusCode} path=${memPath}`,
+          );
+        });
+        res.on("close", () => {
+          if (!res.writableEnded) {
+            this.logger.warn(
+              `[mem-perf] req.close-before-end t=${Date.now()} elapsed=${Date.now() - memT0}ms path=${memPath}`,
+            );
+          }
+        });
+      }
+
       wrapWithTrace(req, res, () => this.handleRequest(req, res)).catch((err) => {
         // wrapWithTrace 内部已经记录了错误，这里只做 fallback
         if (!res.headersSent) {

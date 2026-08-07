@@ -76,13 +76,15 @@ memory:
   storeBackend: "sqlite"
 
   embedding:
-    provider: "none"               # 默认关闭向量搜索, 仅用 BM25
-    # 开启向量搜索示例:
-    # provider: "openai"
-    # baseUrl: "https://api.openai.com/v1"
-    # apiKey: "${TDAI_LLM_API_KEY}"
-    # model: "text-embedding-3-small"
-    # dimensions: 1536
+    # Vector search via ericai-proxy's /v1/embeddings passthrough (added to
+    # ericai-proxy). bge-m3/heavy emits 1024-dim vectors. The proxy has no API
+    # keys configured (auth disabled on loopback), but the OpenAI client
+    # requires a non-empty apiKey string, so pass a placeholder.
+    provider: "openai"
+    baseUrl: "http://127.0.0.1:8317/v1"
+    apiKey: "ericai-proxy"
+    model: "BAAI/bge-m3/heavy"
+    dimensions: 1024
 
   bm25:
     enabled: true
