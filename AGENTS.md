@@ -24,9 +24,41 @@ The `deploy/global-images/*.sh` scripts assume Docker. This box runs **podman
 no sudo), so `docker network create` fails. Run the services natively instead:
 
 ```bash
-./run/start-local.sh         # start all 3 services (background, logs in run/logs/)
-./run/start-local.sh --stop  # stop all 3
+./run/start-local.sh                      # start all 3 services (background, logs in run/logs/)
+./run/start-local.sh knowledge proxy      # start only these (use this when 8420 is already held)
+./run/start-local.sh memory-core          # start one service
+./run/start-local.sh --stop               # stop all 3
+./run/start-local.sh --stop knowledge     # stop one service
+./run/start-local.sh --stop knowledge proxy  # stop several
+./run/start-local.sh --status             # show live health table (curls each /health)
 ```
+
+`--status` prints port, PID, and health per service and flags stale PIDs, e.g.:
+
+```
+SERVICE        PORT   PID      STATUS
+memory-core    8420   843414   healthy (HTTP 200)
+knowledge      8424   419882   healthy (HTTP 200)
+proxy          8096   410166   healthy (HTTP 200)
+```
+
+Behavior notes:
+- **Port-8420 clash guard**: starting `memory-core` aborts with an error if
+  something already binds 8420 — it tells you to run `--status` or start only
+  `knowledge proxy`. This prevents a second memory-core from failing to bind
+  against the live instance (see "Preferred memory-core launch" below).
+- **PID capture**: the script resolves the **real node listener** for each
+  service (by polling `ss` for the port's listener) and stores *that* PID in
+  `run/*.pid` — not the `npm`-wrapper PID (which exits once node is spawned and
+  left stale PID files in earlier versions). So `--stop` kills the actual
+  server, not a dead wrapper.
+- **memory-core caveat**: the script's own memory-core launch uses the
+  `run/data/memory-core` data dir. If a live memory-core (default-data-dir
+  instance, see below) is already running and its PID was written to
+  `run/memory-core.pid`, then `--stop memory-core` *will* kill it. To avoid
+  touching the live instance, don't pass `memory-core` to the script — manage
+  `knowledge` and `proxy` through it, and leave memory-core to its own
+  nohup lifecycle.
 
 What `start-local.sh` launches:
 
@@ -72,7 +104,9 @@ Notes:
   (`gateway-restart.log`) and `/health`, not an interactive prompt.
 - If port 8420 is already bound (`EADDRINUSE`), memory-core is already running
   — do not kill the running instance (it may belong to the user's active
-  session); the new process simply fails to bind.
+  session); the new process simply fails to bind. When launching via
+  `./run/start-local.sh memory-core`, the script's clash guard catches this
+  up front and aborts before attempting the launch.
 - Config resolution: `MemoryCore/tdai-gateway.yaml` is picked up from CWD.
   It points `data.baseDir` at `~/.memory-tencentdb/memory-tdai` and enables
   `memory.embedding` (bge-m3/heavy, 1024-dim) via the EricAI proxy.
