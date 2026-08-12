@@ -1,0 +1,78 @@
+# ============================================================
+# TDAI Gateway — Mac local (vscode-acp + Ollama light models)
+# ============================================================
+# LLM: qwythos 9B via Mac vllm-proxy (L1/L2/L3 extraction — 1.5B was too weak)
+# Embedding: nomic-embed-text (768d) via Ollama; hybrid recall
+# Fallback LLM (if proxy down): switch llm back to Ollama qwen2.5:1.5b-instruct
+# ============================================================
+
+deployMode: standalone
+stateBackend: "local"
+
+server:
+  port: 8420
+  host: "0.0.0.0"
+  apiKey: "local"
+
+data:
+  baseDir: "~/.memory-tencentdb/memory-tdai"
+
+llm:
+  baseUrl: "http://127.0.0.1:8317/v1"
+  apiKey: "local"
+  model: "qwythos"
+  maxTokens: 4096
+  timeoutMs: 180000
+
+memory:
+  capture:
+    enabled: true
+
+  extraction:
+    enabled: true
+    enableDedup: true
+    maxMemoriesPerSession: 20
+
+  persona:
+    triggerEveryN: 50
+    maxScenes: 15
+
+  pipeline:
+    everyNConversations: 5
+    enableWarmup: true
+    l1IdleTimeoutSeconds: 600
+    l2DelayAfterL1Seconds: 90
+    l2MinIntervalSeconds: 900
+    l2MaxIntervalSeconds: 3600
+
+  recall:
+    enabled: true
+    maxResults: 5
+    scoreThreshold: 0.3
+    strategy: "hybrid"
+    timeoutMs: 5000
+
+  storeBackend: "sqlite"
+
+  embedding:
+    provider: "openai"
+    baseUrl: "http://127.0.0.1:11434/v1"
+    apiKey: "ollama"
+    model: "nomic-embed-text"
+    dimensions: 768
+    sendDimensions: false
+    timeoutMs: 30000
+
+  bm25:
+    enabled: true
+    language: "zh"
+
+observability:
+  otel:
+    enabled: false
+  clickhouse:
+    enabled: false
+  kafka:
+    enabled: false
+  langfuse:
+    enabled: false
