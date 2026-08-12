@@ -18,7 +18,8 @@
 
 import fsPromises from "node:fs/promises";
 import path from "node:path";
-import { generateText, tool, stepCountIs, jsonSchema } from "ai";
+import { generateText, tool, stepCountIs, hasToolCall, jsonSchema } from "ai";
+import { createDoneTool } from "./done-tool.js";
 import { createOpenAI } from "@ai-sdk/openai";
 import { report } from "../../core/report/reporter.js";
 import type {
@@ -34,6 +35,11 @@ const TAG = "[memory-tdai] [standalone-runner]";
 
 // Max iterations in the tool-call loop to prevent infinite loops
 const MAX_TOOL_ITERATIONS = 20;
+
+/** L2/L3 loops stop on `done` or when the step cap is reached. */
+function buildToolLoopStopWhen(maxIterations: number) {
+  return [hasToolCall("done"), stepCountIs(maxIterations)] as const;
+}
 
 /** L2/L3 must invoke read/write/edit — text-only completions create no scene files. */
 function resolveToolChoice(
@@ -235,6 +241,8 @@ function createSandboxedTools(workspaceDir: string, logger?: Logger) {
         }
       }) as any,
     }),
+
+    done: createDoneTool(logger),
   };
 }
 
@@ -350,7 +358,7 @@ export class StandaloneLLMRunner implements LLMRunner {
         // (or even a tools-only-with-`read`) makes some OpenAI-compatible
         // backends emit spurious tool calls on pure-text tasks.
         ...(hasTools
-          ? { tools, toolChoice, stopWhen: stepCountIs(maxIterations) }
+          ? { tools, toolChoice, stopWhen: buildToolLoopStopWhen(maxIterations) }
           : {}),
         maxOutputTokens: maxTokens,
         abortSignal: combinedSignal,

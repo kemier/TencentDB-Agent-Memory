@@ -76,6 +76,8 @@ export const userKeyUpdateSchema = z.object({
 
 // ── Team ──
 export const teamCreateSchema = z.object({
+  /** Optional stable id (e.g. `default` for vscode-acp Model B isolation). */
+  team_id: z.string().min(1).optional(),
   name: nonEmpty,
   owner_user_id: nonEmpty,
   description: z.string().optional(),
@@ -110,6 +112,8 @@ export const teamMemberGetSchema = z.object({ team_id: nonEmpty, user_id: nonEmp
 
 // ── Agent ──
 export const agentCreateSchema = z.object({
+  /** Optional stable id (e.g. `pi-agent` matching vscode-acp memory isolation). */
+  agent_id: z.string().min(1).optional(),
   team_id: nonEmpty,
   owner_user_id: nonEmpty,
   name: nonEmpty,

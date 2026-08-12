@@ -198,6 +198,7 @@ export class PersonaGenerator {
         prompt: userPrompt,
         taskId: "persona-generation",
         toolChoice: "required",
+        maxIterations: 6,
         timeoutMs: 180_000,
         // maxTokens omitted → core uses the resolved model's maxTokens from catalog
         workspaceDir: this.dataDir,

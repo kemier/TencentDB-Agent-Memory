@@ -11,6 +11,7 @@
 
 import { tool, jsonSchema } from "ai";
 import type { StorageAdapter } from "../../core/storage/adapter.js";
+import { createDoneTool } from "./done-tool.js";
 
 const TAG = "[memory-tdai] [storage-tools]";
 
@@ -161,6 +162,8 @@ export function createStorageTools(
         }
       }) as any,
     }),
+
+    done: createDoneTool(logger),
   };
 }
 
