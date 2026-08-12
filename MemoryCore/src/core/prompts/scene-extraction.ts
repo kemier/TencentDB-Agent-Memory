@@ -1,6 +1,6 @@
 /**
  * Scene Extraction Prompt — instructs LLM to consolidate memories into scene blocks
- * using file tools (read, write, edit).
+ * using file tools (read, write, edit, done).
  *
  * v2: Split into systemPrompt (role + constraints + workflow + output spec) and
  * userPrompt (dynamic data). Tool names aligned to both OpenClaw host tools
@@ -85,6 +85,7 @@ function buildSceneSystemPrompt(maxScenes: number): string {
 5. **场景索引和系统配置由工程系统自动维护**，你只需专注于操作 \`.md\` 场景文件
 6. **删除文件的唯一方式**：使用 **write** 工具将文件内容写为 \`[DELETED]\` 标记（\`path\`=文件名, \`content\`=\`[DELETED]\`）。系统会自动清理带有此标记的文件。**禁止**写入空字符串（会被系统拒绝）。**禁止**用 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等其他标记替代删除——只有 \`[DELETED]\` 标记会触发系统清理。
 7. **禁止创建报告/整合/汇总类文件**。你的输出必须是有意义的场景叙事文件（如"技术架构与工程实践.md"、"日常生活与工作节奏.md"）。禁止创建以 BATCH、REPORT、CONSOLIDATION、INTEGRATION、ARCHIVE、SUMMARY 等为前缀的文件。
+8. **完成后必须调用 done 工具结束任务**。在最后一次 **write** 或 **edit** 之后，立即调用 **done**（无参数）。**禁止**在 write/edit 之后反复 **read** 同一文件做"验证"。
 
 ## 📛 文件命名规范（强制）
 
@@ -149,7 +150,7 @@ function buildSceneSystemPrompt(maxScenes: number): string {
    - **⚠️ 合并后必须删除旧文件**：被合并的旧场景文件必须通过 **write** 写入 \`[DELETED]\` 标记。**仅仅打标记（如 [ARCHIVE]、[CONSOLIDATED]）不算删除，文件仍会占用配额。**
 3. **CREATE（新建）**【最后手段】: 
    - **前提条件**：当前场景总数 < ${maxScenes}
-   - **CREATE 前的强制验证**：必须先用 **read** 检查至少 2 个最相似的现有场景，确认新记忆确实无法融入后才能 CREATE。跳过验证直接 CREATE 是被禁止的
+   - **CREATE 前的强制验证**（仅当已有场景 ≥ 1 时）：必须先用 **read** 检查至少 2 个最相似的现有场景，确认新记忆确实无法融入后才能 CREATE。跳过验证直接 CREATE 是被禁止的
    - 如果话题是全新的且与现有内容区分度高，可以创建新 Block
    - **每次批处理最多新增 1 个场景**
 
@@ -252,7 +253,8 @@ reason: 具体原因描述
    - 使用 **read** 读取需要更新的场景文件
    - 使用 **write** 创建新文件或**整体重写**已有场景文件
    - 使用 **edit** 对场景文件进行**局部更新**（如只更新某个章节）
-   - **删除文件**：使用 **write**(\`path\`=文件名, \`content\`='[DELETED]') 写入删除标记。系统会自动清理这些文件。**重要**：只有 \`[DELETED]\` 标记会触发系统清理。写入空字符串会被系统拒绝，写入 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等标记**不会删除文件**，文件会继续占用场景配额。`;
+   - **删除文件**：使用 **write**(\`path\`=文件名, \`content\`='[DELETED]') 写入删除标记。系统会自动清理这些文件。**重要**：只有 \`[DELETED]\` 标记会触发系统清理。写入空字符串会被系统拒绝，写入 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等标记**不会删除文件**，文件会继续占用场景配额。
+   - **完成后调用 done**：所有 write/edit 完成后，调用 **done** 结束任务。`;
 }
 
 function buildWorkSceneSystemPrompt(maxScenes: number): string {
@@ -315,6 +317,7 @@ function buildWorkSceneSystemPrompt(maxScenes: number): string {
 5. **场景索引和系统配置由工程系统自动维护**，你只需专注于操作 \`.md\` 场景文件。
 6. **删除文件的唯一方式**：使用 **write** 工具将文件内容写为 \`[DELETED]\` 标记（\`path\`=文件名, \`content\`=\`[DELETED]\`）。系统会自动清理带有此标记的文件。**禁止**写入空字符串。**禁止**用 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等其他标记替代删除。
 7. **禁止创建报告/整合/汇总类文件**。你的输出必须是有意义的工作场景文件，如 \`Agent-Memory-群聊抽取.md\`、\`后端接口-查询能力.md\`、\`团队记忆-SOP与禁忌.md\`。禁止创建以 BATCH、REPORT、CONSOLIDATION、INTEGRATION、ARCHIVE、SUMMARY 等为前缀的文件。
+8. **完成后必须调用 done 工具结束任务**。在最后一次 **write** 或 **edit** 之后，立即调用 **done**（无参数）。**禁止**在 write/edit 之后反复 **read** 同一文件做"验证"。
 
 ---
 
@@ -408,7 +411,7 @@ function buildWorkSceneSystemPrompt(maxScenes: number): string {
 
 3. **CREATE（新建）【最后手段】**
    - **前提条件**：当前场景总数 < ${maxScenes}
-   - **CREATE 前的强制验证**：必须先用 **read** 检查至少 2 个最相似的现有场景，确认新记忆确实无法融入后才能 CREATE。
+   - **CREATE 前的强制验证**（仅当已有场景 ≥ 1 时）：必须先用 **read** 检查至少 2 个最相似的现有场景，确认新记忆确实无法融入后才能 CREATE。
    - 如果话题是全新的且与现有内容区分度高，可以创建新 Block。
    - **每次批处理最多新增 1 个场景**。
 
@@ -522,7 +525,8 @@ reason: 具体原因描述
 - 使用 **read** 读取需要更新的场景文件。
 - 使用 **write** 创建新文件或整体重写已有场景文件。
 - 使用 **edit** 对场景文件进行局部更新。
-- **删除文件**：使用 **write**(\`path\`=文件名, \`content\`='[DELETED]') 写入删除标记。系统会自动清理这些文件。**重要**：只有 \`[DELETED]\` 标记会触发系统清理。写入空字符串会被系统拒绝，写入 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等标记不会删除文件。`;
+- **删除文件**：使用 **write**(\`path\`=文件名, \`content\`='[DELETED]') 写入删除标记。系统会自动清理这些文件。**重要**：只有 \`[DELETED]\` 标记会触发系统清理。写入空字符串会被系统拒绝，写入 \`[ARCHIVE]\`、\`[CONSOLIDATED]\` 等标记不会删除文件。
+- **完成后调用 done**：所有 write/edit 完成后，调用 **done** 结束任务。`;
 }
 
 function getSceneSystemPrompt(maxScenes: number, promptMode: MemoryPromptMode = "chat"): string {
@@ -552,9 +556,16 @@ export function buildSceneExtractionPrompt(params: SceneExtractionPromptParams):
     ? `### 📁 已有场景文件清单（仅以下文件可 read）\n${existingSceneFiles.map((f) => `- \`${f}\``).join("\n")}\n`
     : `### 📁 已有场景文件清单\n（当前无已有场景文件）\n`;
 
+  const coldStartSection =
+    !existingSceneFiles || existingSceneFiles.length === 0
+      ? `### ⚡ 冷启动（无已有场景）
+当前无任何已有场景文件。**直接 write 创建 1 个新场景文件**，**不要 read**，完成后调用 **done**。
+
+`
+      : "";
+
   const userPrompt = `**输出语言**：场景文件内容使用下方 New Memories List 中记忆的主导语言。
-${warningSection}
-### 1️⃣ New Memories List
+${warningSection}${coldStartSection}### 1️⃣ New Memories List
 ${memoriesJson}
 
 ### 2️⃣ Existing Scene Blocks Summary

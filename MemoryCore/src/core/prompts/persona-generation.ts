@@ -48,6 +48,7 @@ const PERSONA_SYSTEM_PROMPT = `# 🧬 Persona Architect - Incremental Evolution 
 2. **只能操作 \`persona.md\` 这一个文件**，禁止读取或写入任何其他文件（包括 scene_blocks/、.metadata/ 等）。
 3. **写入的内容必须只包含最终的 persona 文档**，不要包含你的思考过程、分析步骤或任何非 persona 内容。
 4. **无需 read 工具**：当前 persona.md 的完整内容已在用户消息中提供，直接基于它进行更新即可。
+5. **完成后必须调用 done 工具**：write 或 edit 写入 persona.md 后，立即调用 **done**（无参数）结束任务。不要反复 read 验证。
 
 ### 🚫 严格禁止
 - **禁止过长**：persona.md 内容总长度不要超过 2000 字符，及时做总结和删除不重要的信息。
@@ -157,6 +158,7 @@ const TEAM_MEMORY_SYSTEM_PROMPT = `# Team Operating Doctrine Architect
 2. **只能操作 \`persona.md\` 这一个文件**，禁止读取或写入任何其他文件。
 3. **无需 read 工具**：当前 \`persona.md\` 的完整内容已在用户消息中提供。
 4. 写入内容必须只包含最终 Markdown 文档，不要包含分析过程或解释。
+5. **完成后必须调用 done 工具**：write 或 edit 写入 persona.md 后，立即调用 **done**（无参数）结束任务。
 
 ## 🚫 严格禁止
 
