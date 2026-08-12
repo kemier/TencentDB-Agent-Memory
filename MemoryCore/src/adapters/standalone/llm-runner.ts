@@ -35,6 +35,27 @@ const TAG = "[memory-tdai] [standalone-runner]";
 // Max iterations in the tool-call loop to prevent infinite loops
 const MAX_TOOL_ITERATIONS = 20;
 
+/** L2/L3 must invoke read/write/edit — text-only completions create no scene files. */
+function resolveToolChoice(
+  params: LLMRunParams,
+  hasTools: boolean,
+): "auto" | "required" | "none" | undefined {
+  if (!hasTools) {
+    return undefined;
+  }
+  if (params.toolChoice) {
+    return params.toolChoice;
+  }
+  if (params.taskId.startsWith("scene-extract") || params.taskId === "persona-generation") {
+    return "required";
+  }
+  return "auto";
+}
+
+function stepHadToolCalls(step: { toolCalls?: Array<unknown> }): boolean {
+  return (step.toolCalls?.length ?? 0) > 0;
+}
+
 // ============================
 // experimental_telemetry.metadata 组装
 // ============================
@@ -318,6 +339,9 @@ export class StandaloneLLMRunner implements LLMRunner {
         ? AbortSignal.any([timeoutSignal, params.abortSignal])
         : timeoutSignal;
 
+      const hasTools = !!(tools && Object.keys(tools).length > 0);
+      const toolChoice = resolveToolChoice(params, hasTools);
+
       const result = await generateText({
         model: provider.chat(this.model),
         system: params.systemPrompt,
@@ -325,8 +349,8 @@ export class StandaloneLLMRunner implements LLMRunner {
         // Only attach tools when actually enabled — passing an empty object
         // (or even a tools-only-with-`read`) makes some OpenAI-compatible
         // backends emit spurious tool calls on pure-text tasks.
-        ...(tools && Object.keys(tools).length > 0
-          ? { tools, stopWhen: stepCountIs(maxIterations) }
+        ...(hasTools
+          ? { tools, toolChoice, stopWhen: stepCountIs(maxIterations) }
           : {}),
         maxOutputTokens: maxTokens,
         abortSignal: combinedSignal,
@@ -377,6 +401,13 @@ export class StandaloneLLMRunner implements LLMRunner {
             `${TAG} step[${step.stepNumber}] empty (no tools, no text), finishReason=${step.finishReason}`,
           );
         }
+      }
+
+      if (toolChoice === "required" && !result.steps.some(stepHadToolCalls)) {
+        this.logger?.warn?.(
+          `${TAG} run() text-only response for taskId=${params.taskId} — ` +
+            "no tool calls executed; L2/L3 file writes will be empty",
+        );
       }
 
       // Metric

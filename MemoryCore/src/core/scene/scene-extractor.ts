@@ -250,6 +250,7 @@ export class SceneExtractor {
         systemPrompt,
         prompt: userPrompt,
         taskId: `scene-extract-${Date.now()}`,
+        toolChoice: "required",
         timeoutMs: this.timeoutMs,
         // maxTokens omitted → core uses the resolved model's maxTokens from catalog
         workspaceDir: sceneBlocksDir,

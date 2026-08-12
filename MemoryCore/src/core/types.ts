@@ -89,6 +89,11 @@ export interface LLMRunParams {
   /** Cap iterations of the per-call tool-call loop. Default 20 in standalone runner. */
   maxIterations?: number;
   /**
+   * Tool invocation policy for tool-enabled runs.
+   * L2/L3 default to `'required'` via taskId heuristics in StandaloneLLMRunner when omitted.
+   */
+  toolChoice?: "auto" | "required" | "none";
+  /**
    * Working directory for tool-enabled runs.
    * When `enableTools` is true, the LLM's file tools resolve paths relative to this dir.
    * When omitted, a clean empty workspace is used.
