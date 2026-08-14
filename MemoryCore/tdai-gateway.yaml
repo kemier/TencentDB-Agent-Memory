@@ -47,6 +47,11 @@ memory:
 
   capture:
     enabled: true
+    # L0/L1 retention: delete conversation records older than 7 days.
+    # Prevents stale memories from old sessions being recalled and bloating
+    # the injected <agent-memory> block. 0 = disabled (old default).
+    l0l1RetentionDays: 7
+    allowAggressiveCleanup: false
 
   extraction:
     enabled: true
@@ -69,6 +74,13 @@ memory:
     enabled: true
     maxResults: 5
     scoreThreshold: 0.3
+    # Cap per-memory and total recall chars. The /v3/atomic/search endpoint
+    # returns raw L1 content without these limits by default (they only apply
+    # in the OpenClaw recall hook path). Setting them here makes the gateway
+    # enforce budgets on the API path too, preventing a single long memory
+    # from consuming the entire recall block.
+    maxCharsPerMemory: 400
+    maxTotalRecallChars: 2000
     strategy: "hybrid"
     timeoutMs: 5000
 

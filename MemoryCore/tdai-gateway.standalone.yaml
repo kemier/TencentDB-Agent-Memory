@@ -28,6 +28,8 @@ memory:
 
   capture:
     enabled: true
+    l0l1RetentionDays: 7
+    allowAggressiveCleanup: false
 
   extraction:
     enabled: true
@@ -50,6 +52,8 @@ memory:
     enabled: true
     maxResults: 5
     scoreThreshold: 0.3
+    maxCharsPerMemory: 400
+    maxTotalRecallChars: 2000
     strategy: "hybrid"
     timeoutMs: 5000
 
