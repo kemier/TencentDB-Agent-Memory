@@ -25,7 +25,7 @@ stateBackend: "local"
 
 server:
   port: 8420
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   # apiKey: "skill-mvp"   # 可选；不填则所有 v2 接口默认开放（仅本机）
 
 data:
