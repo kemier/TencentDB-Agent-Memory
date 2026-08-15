@@ -1077,6 +1077,8 @@ export class MetadataService {
   async ensureChatMemoryAsset(params: {
     team_id: string;
     agent_id: string;
+    /** 自愈登记 agent 时的 owner；缺省 "system"。 */
+    owner_user_id?: string;
   }): Promise<AssetEntity> {
     const assetId = buildChatMemoryAssetId(params.team_id, params.agent_id);
 
@@ -1092,12 +1094,25 @@ export class MetadataService {
     // 2. 拿 agent，取 owner + team 用于 create + canBindAsset
     //    先拉 agent 是为了在任何路径下都能校验 team_mismatch，同时后续 bind
     //    要用到 owner_user_id 作 created_by。
-    const agent = await this.getAgentById(params.agent_id);
+    let agent = await this.getAgentById(params.agent_id);
     if (!agent) {
-      throw new MetadataError(
-        "agent_not_found",
-        `cannot ensure chat_memory asset: agent ${params.agent_id} not found`,
-      );
+      // 自愈登记：记忆 v1/v3 链路从不显式登记 agent（meta_agents 为空），导致
+      // 这里每轮都抛 agent_not_found、调用方每轮打 warn。
+      // 隐式使用 → 隐式登记：补建缺省的 team + agent，然后继续走资产创建。
+      const owner = params.owner_user_id ?? "system";
+      if (!(await this.getTeamById(params.team_id))) {
+        await this.store.createTeam({
+          team_id: params.team_id,
+          name: params.team_id,
+          owner_user_id: owner,
+        });
+      }
+      agent = await this.store.createAgent({
+        agent_id: params.agent_id,
+        team_id: params.team_id,
+        owner_user_id: owner,
+        name: params.agent_id,
+      });
     }
     if (agent.team_id !== params.team_id) {
       throw new MetadataError(

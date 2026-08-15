@@ -423,7 +423,7 @@ async function callLlmExtraction(params: {
       prompt: userPrompt,
       systemPrompt,
       taskId: "l1-extraction",
-      timeoutMs: 180_000,
+      timeoutMs: 300_000,
       ...traceParams,
     });
   } else {
@@ -439,7 +439,7 @@ async function callLlmExtraction(params: {
       prompt: userPrompt,
       systemPrompt,
       taskId: "l1-extraction",
-      timeoutMs: 180_000,
+      timeoutMs: 300_000,
       ...traceParams,
     });
   }
