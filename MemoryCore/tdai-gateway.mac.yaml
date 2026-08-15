@@ -23,7 +23,7 @@ llm:
   apiKey: "local"
   model: "qwen3:14b"
   maxTokens: 8192
-  timeoutMs: 180000
+  timeoutMs: 300000
 
 memory:
   capture:

@@ -115,7 +115,7 @@ export class SceneExtractor {
     this.promptMode = opts.promptMode ?? "chat";
     this.memoryPrompt = opts.memoryPrompt;
     this.sceneBackupCount = opts.sceneBackupCount ?? 10;
-    this.timeoutMs = opts.timeoutMs ?? 300_000; // 5 min — LLM may do multiple tool calls
+    this.timeoutMs = opts.timeoutMs ?? 600_000; // 10 min — qwen3:14b via local Ollama can take 5+ min for multi-tool-call extraction runs
     this.logger = opts.logger;
     this.instanceId = opts.instanceId;
     this.storage = opts.storage;

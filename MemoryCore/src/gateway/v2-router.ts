@@ -707,6 +707,7 @@ async function handleConversationAdd(body: unknown, auth: V2AuthContext, request
       await metaSvc.ensureChatMemoryAsset({
         team_id: iso.teamId,
         agent_id: iso.agentId,
+        owner_user_id: iso.userId,
       });
     } catch (err) {
       deps.logger.warn(
