@@ -34,7 +34,7 @@ export async function startE2EGateway(tag: string): Promise<E2EContext> {
   const gatewayKey = `e2e-${tag}-key`;
   const port = 17000 + Math.floor(Math.random() * 2000);
   const gateway = new TdaiGateway({
-    server: { port, host: "127.0.0.1", apiKey: gatewayKey },
+    server: { port, host: "127.0.0.1", apiKey: gatewayKey, corsOrigins: [] },
     data: { baseDir: tmpDir },
     llm: { baseUrl: "http://localhost:1", apiKey: "test-key", model: "test-model" },
   });
