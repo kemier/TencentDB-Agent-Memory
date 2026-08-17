@@ -9,6 +9,7 @@
  */
 
 import { MetadataService, MetadataError } from "../service/metadata-service.js";
+import type { MaybePromise } from "../store/interface.js";
 
 /** 元数据实体类型枚举，用于 requireEntity 调用。 */
 export const enum EntityType {
@@ -21,7 +22,7 @@ export const enum EntityType {
   Acl = "acl",
 }
 
-const LOOKUP: Record<EntityType, (svc: MetadataService, id: string) => Promise<unknown>> = {
+const LOOKUP: Record<EntityType, (svc: MetadataService, id: string) => MaybePromise<unknown>> = {
   [EntityType.User]: (svc, id) => svc.getUserById(id),
   [EntityType.Team]: (svc, id) => svc.getTeamById(id),
   [EntityType.Agent]: (svc, id) => svc.getAgentById(id),

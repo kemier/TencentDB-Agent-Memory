@@ -52,9 +52,9 @@ export class OffloadStateManager {
   /** Whether L1.5 has successfully executed for the current session/prompt.
    *  L2 must wait for this to be true before triggering. */
   l15Settled = false;
+  private static _instanceCounter = 0;
   /** Unique instance ID for debugging (each new OffloadStateManager gets a new id). */
   readonly _instanceId = ++OffloadStateManager._instanceCounter;
-  private static _instanceCounter = 0;
 
   /** Set of toolCallIds confirmed offloaded in previous rounds. */
   confirmedOffloadIds = new Set<string>();

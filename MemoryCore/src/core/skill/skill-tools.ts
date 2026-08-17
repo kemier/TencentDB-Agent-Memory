@@ -31,6 +31,10 @@ export interface ExtractedSkillCandidate {
   skill_id?: string;
   version?: number;
   description?: string;
+  confidence?: number;
+  reason?: string;
+  file_path?: string;
+  file_type?: "text" | "executable" | "binary";
 }
 
 export interface CreateSkillToolsOptions {

@@ -30,7 +30,7 @@ import type http from "node:http";
 export type TraceAttrs = Record<string, string | number | boolean | null | undefined>;
 
 /** Log 属性 — 只支持基本类型 */
-export type LogAttrs = Record<string, string | number | boolean>;
+export type LogAttrs = Record<string, string | number | boolean | undefined>;
 
 /** Span 接口 — 与 @opentelemetry/api Span 兼容的最小子集 */
 export interface ISpan {

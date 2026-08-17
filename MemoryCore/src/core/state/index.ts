@@ -64,7 +64,10 @@ export async function createStateBackend(config: StateBackendConfig): Promise<IS
     }
 
     // Dynamically import the remote backend client only when needed.
-    const { default: Redis } = await import("ioredis");
+    // ioredis v5 的 CJS 包通过 exports= require("./Redis").default 导出，
+    // NodeNext 下 default 解析成模块命名空间（不可构造）。
+    // 使用命名导入 { Redis } 才能拿到可 new 的类。
+    const { Redis } = await import("ioredis");
 
     let client;
     if (redisCfg.url) {

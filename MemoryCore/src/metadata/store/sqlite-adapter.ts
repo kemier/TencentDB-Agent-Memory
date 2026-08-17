@@ -11,6 +11,7 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import type { IMetadataStore } from "./interface.js";
 import { mapTeamMemberWithProfile } from "./team-member-view.js";
 import { generateId, generateRelationId, ID_PREFIX } from "../utils/id-generator.js";
 import {

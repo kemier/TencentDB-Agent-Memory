@@ -9,6 +9,22 @@
 // Configuration types (input from user / openclaw.json)
 // ============================
 
+/** A parsed SKILL.md file (frontmatter + body). Produced by skill-format's
+ *  `parseSkillFile` and consumed by `validateSkillFile` / `formatSkillFile`. */
+export interface SkillFile {
+  frontmatter: {
+    name: string;
+    description: string;
+    category?: string;
+    created_at?: string;
+    updated_at?: string;
+    source?: "auto" | "manual";
+    resources?: Array<{ path: string; type: "text" | "executable" | "binary" }>;
+  };
+  body: string;
+  raw: string;
+}
+
 /**
  * User-facing skill configuration. All fields optional; defaults applied
  * by `resolveSkillConfig`.

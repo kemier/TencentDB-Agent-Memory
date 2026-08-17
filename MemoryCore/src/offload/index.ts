@@ -1310,17 +1310,17 @@ export function registerOffload(api: any, offloadConfig: OffloadConfig): void {
 // ─── OffloadContextEngine ────────────────────────────────────────────────────
 
 class OffloadContextEngine {
-  private _sessions: SessionRegistry;
-  private _logger: PluginLogger;
-  private _pCfg: Partial<PluginConfig>;
-  private _getContextWindow: () => number;
-  private _notifyL2NewNullEntries: (count: number) => void;
-  private _clearL2Timeout: () => void;
-  private _l4State: { pendingResult: any };
-  private _flushL1: (mgr: OffloadStateManager, triggerSource: string, fireAndForget?: boolean, maxCount?: number) => Promise<void>;
-  private _backendClient: BackendClient | null;
-  private _judgeL15: (mgr: OffloadStateManager, event: any, ctx: any) => Promise<void>;
-  private _disposeL15: () => void;
+  private _sessions!: SessionRegistry;
+  private _logger!: PluginLogger;
+  private _pCfg!: Partial<PluginConfig>;
+  private _getContextWindow!: () => number;
+  private _notifyL2NewNullEntries!: (count: number) => void;
+  private _clearL2Timeout!: () => void;
+  private _l4State!: { pendingResult: any };
+  private _flushL1!: (mgr: OffloadStateManager, triggerSource: string, fireAndForget?: boolean, maxCount?: number) => Promise<void>;
+  private _backendClient!: BackendClient | null;
+  private _judgeL15!: (mgr: OffloadStateManager, event: any, ctx: any) => Promise<void>;
+  private _disposeL15!: () => void;
 
   constructor(opts: any) {
     this.update(opts);

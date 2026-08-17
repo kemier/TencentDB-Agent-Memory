@@ -186,13 +186,13 @@ export class PersonaGenerator {
     const systemPrompt = composeMemorySystemPrompt(baseSystemPrompt, this.memoryPrompt);
 
     // 7. Backup before LLM run (LLM writes persona.md via tools)
-    const bm = new BackupManager(this.storage
+    const backupRoot = this.storage
       ? undefined  // COS mode: BackupManager not used (TODO: adapt BackupManager for StorageAdapter)
-      : await (async () => { const path = await import("node:path"); return path.default.join(this.dataDir, ".backup"); })()
-    );
+      : await (async () => { const path = await import("node:path"); return path.default.join(this.dataDir, ".backup"); })();
+    const bm = backupRoot ? new BackupManager(backupRoot) : undefined;
     if (!this.storage) {
       const path = await import("node:path");
-      await bm.backupFile(path.default.join(this.dataDir, targetFile), "persona", `offset${cp.total_processed}`, this.backupCount);
+      await bm!.backupFile(path.default.join(this.dataDir, targetFile), "persona", `offset${cp.total_processed}`, this.backupCount);
     }
 
     // 8. Run LLM agent (sandboxed to dataDir, tools enabled — LLM writes target L3 file directly)

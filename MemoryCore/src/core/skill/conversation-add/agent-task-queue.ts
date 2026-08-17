@@ -34,7 +34,9 @@ import { randomUUID } from "node:crypto";
  *     serialize 检测到会抛。
  */
 export interface AgentTuple {
-  instance_id: string;
+  /** Optional: absent (or "__legacy__") tuples are treated as the legacy
+   *  4-segment form by serialization/worker-pool (see LEGACY_INSTANCE_ID). */
+  instance_id?: string;
   space_id: string;
   user_id: string;
   team_id: string;
@@ -58,12 +60,12 @@ function assertTupleField(name: string, value: string): void {
 }
 
 export function serializeAgentTuple(a: AgentTuple): string {
-  assertTupleField("instance_id", a.instance_id);
+  assertTupleField("instance_id", a.instance_id ?? LEGACY_INSTANCE_ID);
   assertTupleField("space_id", a.space_id);
   assertTupleField("user_id", a.user_id);
   assertTupleField("team_id", a.team_id);
   assertTupleField("agent_id", a.agent_id);
-  return `${a.instance_id}|${a.space_id}|${a.user_id}|${a.team_id}|${a.agent_id}`;
+  return `${a.instance_id ?? LEGACY_INSTANCE_ID}|${a.space_id}|${a.user_id}|${a.team_id}|${a.agent_id}`;
 }
 
 export function parseAgentTuple(raw: string): AgentTuple | null {

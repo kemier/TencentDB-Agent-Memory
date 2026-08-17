@@ -358,7 +358,7 @@ export class SkillWorkerPool {
     agent: AgentTuple,
     workerId: string,
   ): Promise<{ lockContended?: boolean }> {
-    const instanceId = agent.instance_id;
+    const instanceId = agent.instance_id ?? LEGACY_INSTANCE_ID;
     const [buffer, extractor, sink] = await Promise.all([
       this.opts.resolveBuffer(instanceId),
       this.opts.resolveExtractor(instanceId),

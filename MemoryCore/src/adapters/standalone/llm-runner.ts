@@ -18,10 +18,11 @@
 
 import fsPromises from "node:fs/promises";
 import path from "node:path";
-import { generateText, tool, stepCountIs, hasToolCall, jsonSchema } from "ai";
+import { generateText, tool, stepCountIs, hasToolCall, jsonSchema, type ToolSet } from "ai";
 import { createDoneTool } from "./done-tool.js";
 import { createOpenAI } from "@ai-sdk/openai";
 import { report } from "../../core/report/reporter.js";
+import type { AttributeValue } from "@opentelemetry/api";
 import type {
   LLMRunner,
   LLMRunParams,
@@ -38,7 +39,7 @@ const MAX_TOOL_ITERATIONS = 20;
 
 /** L2/L3 loops stop on `done` or when the step cap is reached. */
 function buildToolLoopStopWhen(maxIterations: number) {
-  return [hasToolCall("done"), stepCountIs(maxIterations)] as const;
+  return [hasToolCall("done"), stepCountIs(maxIterations)];
 }
 
 /** L2/L3 must invoke read/write/edit — text-only completions create no scene files. */
@@ -315,7 +316,6 @@ export class StandaloneLLMRunner implements LLMRunner {
     const provider = createOpenAI({
       baseURL: this.config.baseUrl,
       apiKey: this.config.apiKey,
-      compatibility: "compatible",
     });
 
     // Select tools based on mode + storage
@@ -324,16 +324,16 @@ export class StandaloneLLMRunner implements LLMRunner {
     // enableTools=false: omit tools entirely so the model cannot hallucinate calls.
     // Caller-provided tools (params.tools) override the defaults — used by
     // SkillExtractor to inject domain-specific tools (skill_list, etc.).
-    let tools: Record<string, unknown> | undefined;
+    let tools: ToolSet | undefined;
     if (callerProvidedTools && effectiveEnableTools) {
-      tools = params.tools;
+      tools = params.tools as ToolSet | undefined;
       this.logger?.debug?.(`${TAG} Using caller-provided tools: [${Object.keys(tools!).join(", ")}]`);
     } else if (effectiveEnableTools && params.storage) {
       const { createStorageTools } = await import("./storage-tools.js");
-      tools = createStorageTools(params.storage, params.storagePrefix ?? "", this.logger);
+      tools = createStorageTools(params.storage, params.storagePrefix ?? "", this.logger) as ToolSet;
       this.logger?.debug?.(`${TAG} Using storage-backed tools (prefix="${params.storagePrefix ?? ""}")`);
     } else if (effectiveEnableTools) {
-      tools = createSandboxedTools(workspaceDir, this.logger);
+      tools = createSandboxedTools(workspaceDir, this.logger) as ToolSet;
     } else {
       tools = undefined; // pure-text task — never expose any tool to the model
     }
@@ -365,7 +365,7 @@ export class StandaloneLLMRunner implements LLMRunner {
         experimental_telemetry: {
           isEnabled: true,
           functionId: params.taskId,
-          metadata: buildTelemetryMetadata(params),
+          metadata: buildTelemetryMetadata(params) as Record<string, AttributeValue>,
         },
       });
 
@@ -374,10 +374,12 @@ export class StandaloneLLMRunner implements LLMRunner {
 
       // 暴露 token usage 到 side-channel（供 MetricTrackingRunner 读取）
       if (result.usage) {
+        const promptTokens = result.usage.inputTokens ?? 0;
+        const completionTokens = result.usage.outputTokens ?? 0;
         this.lastUsage = {
-          promptTokens: result.usage.promptTokens ?? 0,
-          completionTokens: result.usage.completionTokens ?? 0,
-          totalTokens: (result.usage.promptTokens ?? 0) + (result.usage.completionTokens ?? 0),
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
         };
       } else {
         this.lastUsage = undefined;

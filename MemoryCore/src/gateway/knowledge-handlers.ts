@@ -62,7 +62,11 @@ async function handleKnowledgeCreate(
   if (!parsed.success) return errorEnvelope(400, formatZodErr(parsed.error), requestId);
   const store = getEntityStore(deps);
   if (!store?.createKnowledge) return missingEntityStore(requestId);
-  return successEnvelope<KnowledgeEntity>(await store.createKnowledge(parsed.data), requestId);
+  const { summary, user_id, ...rest } = parsed.data;
+  return successEnvelope<KnowledgeEntity>(
+    await store.createKnowledge({ ...rest, summary: summary ?? null, user_id: user_id ?? null }),
+    requestId,
+  );
 }
 
 async function handleKnowledgeGet(

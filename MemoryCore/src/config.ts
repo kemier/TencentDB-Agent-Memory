@@ -335,6 +335,10 @@ export interface MemoryTdaiConfig {
    */
   llm: StandaloneLLMOverrideConfig;
   offload: OffloadConfig;
+  /** Optional COS credentials for skill content backend (when storeBackend
+   *  content should live in Tencent COS). Absent => local content backend
+   *  (matches the current standalone/local deploy behavior). */
+  cos?: { secretId: string; secretKey: string; bucket: string };
   /**
    * Optional Skill module config. Pass-through to `resolveSkillConfig()` at
    * the host wiring layer; defaults are applied there. When absent, the

@@ -30,6 +30,7 @@ import { SessionFilter } from "../utils/session-filter.js";
 import { WorkerPermitPool } from "../services/worker-permit-pool.js";
 import { createExtractorAdapter, SkillExtractor as SkillExtractorClass } from "../core/skill/skill-extractor.js";
 import type { SkillCore as SkillCoreType } from "../core/skill/skill-core.js";
+import { SkillCoreError } from "../core/skill/skill-core.js";
 import type {
   HealthResponse,
   RecallRequest,
@@ -147,6 +148,22 @@ function pathnameOf(rawUrl: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Adapt the gateway's (message: string) logger to the
+ * (...args: unknown[]) shape required by offload/executor consumers.
+ */
+function toArgsLogger(logger: Logger): {
+  info: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+} {
+  return {
+    info: (...args: unknown[]) => logger.info(args.map(String).join(" ")),
+    warn: (...args: unknown[]) => logger.warn(args.map(String).join(" ")),
+    error: (...args: unknown[]) => logger.error(args.map(String).join(" ")),
+  };
 }
 
 // ============================
@@ -466,7 +483,7 @@ export class TdaiGateway {
       const rawSvc = new MetadataService(
         wrapApiStoreForTrace(store, storeSource),
         instanceId,
-        this.logger,
+        { debug: (msg: string) => this.logger.debug?.(msg) },
         this.config.metadata,
         this.memorySystemUserConfig,
       );
@@ -1059,8 +1076,8 @@ export class TdaiGateway {
       const offloadDeps: OffloadV2Deps = {
         resolveStorage: v2Deps.resolveStorage,
         getStorage: v2Deps.getStorage ?? (() => undefined),
-        logger: this.logger,
-        stateBackend: this.stateBackend,
+        logger: toArgsLogger(this.logger),
+        stateBackend: this.stateBackend ?? undefined,
         config: { ...this.config.offload, l1Model: "", l15Model: "", l2Model: "" },
       };
       const offloadHandled = await handleOffloadV2Route(req, res, pathname, method, parseJsonBody, sendJson, offloadDeps);
@@ -2683,7 +2700,7 @@ export class TdaiGateway {
       const backend = new CosStorageBackend({
         sharedClient: gateway.sharedCosClient,
         prefix,
-        logger: gateway.logger,
+        logger: toArgsLogger(gateway.logger),
       });
       const adapter = new StorageAdapter(backend);
       if (!gateway.cosStorageCache) gateway.cosStorageCache = new Map();
@@ -2942,7 +2959,7 @@ export class TdaiGateway {
           llmClient,
           stateBackend: gateway.stateBackend!,
           config: { ...gateway.config.offload, l1Model: "", l15Model: "", l2Model: "" },
-          logger: gateway.logger,
+          logger: toArgsLogger(gateway.logger),
         });
         await executor.executeOffloadL1(task, signal);
       },
@@ -2961,7 +2978,7 @@ export class TdaiGateway {
           llmClient,
           stateBackend: gateway.stateBackend!,
           config: { ...gateway.config.offload, l1Model: "", l15Model: "", l2Model: "" },
-          logger: gateway.logger,
+          logger: toArgsLogger(gateway.logger),
         });
         await executor.executeOffloadL15(task, signal);
       },
@@ -2980,7 +2997,7 @@ export class TdaiGateway {
           llmClient,
           stateBackend: gateway.stateBackend!,
           config: { ...gateway.config.offload, l1Model: "", l15Model: "", l2Model: "" },
-          logger: gateway.logger,
+          logger: toArgsLogger(gateway.logger),
         });
         await executor.executeOffloadL2(task, signal);
       },

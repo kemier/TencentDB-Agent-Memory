@@ -24,6 +24,7 @@ import {
 } from "./relation-id-insert.js";
 import { generateUserKey } from "../utils/crypto.js";
 import { isUserKeyExpired } from "../utils/user-key.js";
+import type { IMetadataStore } from "./interface.js";
 import type {
   UserEntity,
   UserKeyEntity,
@@ -370,8 +371,8 @@ export class MongoMetadataStore implements IMetadataStore {
       const doc: UserEntity = {
         user_id: input.user_id ?? generateId(ID_PREFIX.user),
         password: input.password ?? null,
-        auth_provider: input.auth_provider,
-        external_id: input.external_id,
+        auth_provider: input.auth_provider ?? "local",
+        external_id: input.external_id ?? input.user_id ?? generateId(ID_PREFIX.user),
         username: input.username,
         display_name: input.display_name ?? null,
         raw_profile_json: input.raw_profile_json ?? "{}",

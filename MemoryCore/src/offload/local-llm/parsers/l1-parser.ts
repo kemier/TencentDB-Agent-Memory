@@ -34,6 +34,8 @@ export function parseL1Response(raw: string): OffloadEntry[] {
       timestamp: item.timestamp ?? "",
       score: typeof item.score === "number" ? item.score : 5,
       node_id: null,
+      // 由下游（offload/index.ts）按 tool_call_id 回填实际 ref 文件路径。
+      result_ref: "",
     });
   }
 

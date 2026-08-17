@@ -18,7 +18,7 @@
 import { FileLogger } from "./file-logger.js";
 import { getObservabilityBackend } from "./factory.js";
 
-export type LogAttrs = Record<string, string | number | boolean>;
+export type LogAttrs = Record<string, string | number | boolean | undefined>;
 
 // 初始化文件写入器（降级策略：初始化失败不影响业务）
 const obsFileLogger = new FileLogger({

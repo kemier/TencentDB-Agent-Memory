@@ -121,12 +121,12 @@ export async function initOTelSDK(options: OTelSDKInitOptions = {}): Promise<boo
 
     // 兼容新旧版本 @opentelemetry/resources
     // 新版使用 resourceFromAttributes()，旧版使用 new Resource()
-    const createResource = (attrs: Record<string, string>) => {
+    const createResource = (attrs: Record<string, string>): import("@opentelemetry/resources").Resource => {
       if ("resourceFromAttributes" in resourcesModule) {
-        return (resourcesModule as { resourceFromAttributes: (a: Record<string, string>) => unknown }).resourceFromAttributes(attrs);
+        return (resourcesModule as { resourceFromAttributes: (a: Record<string, string>) => import("@opentelemetry/resources").Resource }).resourceFromAttributes(attrs);
       }
       // 旧版 fallback
-      const ResourceClass = (resourcesModule as { Resource: new (a: Record<string, string>) => unknown }).Resource;
+      const ResourceClass = (resourcesModule as { Resource: new (a: Record<string, string>) => import("@opentelemetry/resources").Resource }).Resource;
       return new ResourceClass(attrs);
     };
 
@@ -148,6 +148,16 @@ export async function initOTelSDK(options: OTelSDKInitOptions = {}): Promise<boo
     const headers = options.headers ?? parseHeadersFromEnv();
     const serviceName = options.serviceName ?? process.env.OTEL_SERVICE_NAME ?? "core";
     const serviceVersion = options.serviceVersion ?? "unknown";
+    // OTLP/gRPC exporter 用 grpc Metadata 传鉴权头（headers 仅 OTLP/HTTP 支持）。
+    // @grpc/grpc-js 是 otlp-grpc exporter 的依赖，动态加载避免顶层硬依赖。
+    let grpcMetadata: import("@grpc/grpc-js").Metadata | undefined;
+    if (Object.keys(headers).length > 0) {
+      const { Metadata } = await import("@grpc/grpc-js");
+      grpcMetadata = new Metadata();
+      for (const [k, v] of Object.entries(headers)) {
+        grpcMetadata.set(k, v);
+      }
+    }
     const os = await import("node:os");
     const instanceId = options.instanceId ?? process.env.TDAI_INSTANCE_ID ?? process.env.HOSTNAME ?? os.hostname() ?? "unknown";
 
@@ -171,7 +181,7 @@ export async function initOTelSDK(options: OTelSDKInitOptions = {}): Promise<boo
     let traceExporter: any = null;
     if (hasMainOtel) {
       traceExporter = protocol === "grpc"
-        ? new GrpcTraceExporter({ url: endpoint, headers })
+        ? new GrpcTraceExporter({ url: endpoint, metadata: grpcMetadata })
         : new HttpTraceExporter({ url: `${endpoint}/v1/traces`, headers });
     }
 
@@ -182,7 +192,7 @@ export async function initOTelSDK(options: OTelSDKInitOptions = {}): Promise<boo
     let logExporter: any = null;
     if (hasMainOtel) {
       logExporter = protocol === "grpc"
-        ? new GrpcLogExporter({ url: endpoint, headers })
+        ? new GrpcLogExporter({ url: endpoint, metadata: grpcMetadata })
         : new HttpLogExporter({ url: `${endpoint}/v1/logs`, headers });
     }
 

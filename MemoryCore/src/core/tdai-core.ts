@@ -853,8 +853,10 @@ export class TdaiCore {
       const resolverLogger = {
         info: (m: string) => this.logger.info(m),
         warn: (m: string) => this.logger.warn(m),
+        error: (m: string) => this.logger.error(m),
       };
       const resolved = resolveSkillConfig(this.cfg.skill, probe, resolverLogger);
+      if (!resolved) return;
       this.resolvedSkillConfig = resolved;
 
       // Open the underlying DatabaseSync (raw handle escape hatch — see
@@ -1084,7 +1086,7 @@ export class TdaiCore {
       storage: storage ?? this.getStorage(),
       checkpointLock,
     });
-    const result = await runner({ sessionKey, msg: [], bg_msg: [] });
+    const result = await runner({ sessionKey });
 
     // Read accumulated credit from the tracking runner (原始浮点数，与监控侧严格一致)
     const creditUsed: number = (llmRunner as any)?.accumulatedCredit ?? 0;
