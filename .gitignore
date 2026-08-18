@@ -132,3 +132,7 @@ coverage/
 
 # Local project docs (generated, not for VCS)
 .local-docs/
+
+# data path
+MemoryKnowledge
+run
