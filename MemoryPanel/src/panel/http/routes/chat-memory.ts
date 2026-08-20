@@ -1036,16 +1036,6 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       return respondControlError(c, 400, "INVALID_LAYER");
     const layer = layerRaw as "L0" | "L1" | "L2" | "L3";
 
-    // 反解 team_id / agent_id
-    const parsed = parseChatMemoryAssetId(blockId);
-    if (!parsed) {
-      // 用户自建 UserAsset —— 没有关联 agent，无 layer 数据可拉，直接返空
-      return respondEnvelope(
-        c,
-        okEnvelope(c, { layer, items: [], total: 0, limit, offset }),
-      );
-    }
-
     // 数据面调用需要额外传 team_id / agent_id / user_id / session_id
     const meUserId = await resolveCallerUserId(deps, ctx);
     if (!meUserId) return respondControlError(c, 401, "INVALID_USER_KEY");
@@ -1082,6 +1072,13 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       blockId,
     );
     if (!canRead) return respondControlError(c, 403, "ASSET_NOT_ACCESSIBLE");
+
+    // 反解 team_id / agent_id（用 asset.team_id 无歧义反解 agent_id）
+    const parsed = parseChatMemoryAssetId(blockId, asset);
+    if (!parsed) {
+      // 用户自建 UserAsset —— 没有关联 agent，无 layer 数据可拉，直接返空
+      return respondEnvelope(c, okEnvelope(c, { layer, items: [], total: 0, limit, offset }));
+    }
 
     // chat_memory 数据是 asset owner 写入（用其 user_id 隔离），caller 未必是 owner
     // （借入场景）。用 asset.owner_user_id 作为数据面 user_id。
@@ -1779,21 +1776,39 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
 }
 
 /**
- * 从 chat_memory-{team_id}-{agent_id} 解出 team_id / agent_id
- * 依赖 agent id 以 `agt` 开头这一稳定前缀。
- */ function parseChatMemoryAssetId(
+ * 从 chat_memory-{team_id}-{agent_id} 反解出 team_id / agent_id。
+ *
+ * 内核 utils/chat-memory-asset.ts 稳定生成 `chat_memory-{team}-{agent}`，
+ * team / agent 都可能含 `-`，单凭 asset_id 无法可靠拆分。因此这里优先用
+ * 已知的 asset.team_id（meta 行，无歧义），agent_id = asset_id 去掉
+ * `chat_memory-{team_id}-` 前缀的剩余部分。
+ *
+ * 兼容旧格式 chat_memory-{team}-agt{agent}（历史上从未被内核产出，保留兼容）。
+ */
+function parseChatMemoryAssetId(
   assetId: string,
+  asset?: AssetRaw | null,
 ): { teamId: string; agentId: string } | null {
-  if (!assetId.startsWith("chat_memory-")) return null;
-  const idx = assetId.lastIndexOf("-agt");
-  if (idx < 0) return null;
-  const inner = assetId.slice("chat_memory-".length);
-  const dashAgt = inner.lastIndexOf("-agt");
-  if (dashAgt < 0) return null;
-  return {
-    teamId: inner.slice(0, dashAgt),
-    agentId: inner.slice(dashAgt + 1),
-  };
+  if (!assetId.startsWith('chat_memory-')) return null;
+
+  // 首选：meta 行提供 team_id —— 从 asset_id 反解 agent_id 无歧义。
+  const teamId = asset?.team_id;
+  if (typeof teamId === 'string' && teamId) {
+    const prefix = `chat_memory-${teamId}-`;
+    if (assetId.startsWith(prefix)) {
+      const agentId = assetId.slice(prefix.length);
+      if (agentId) return { teamId, agentId };
+    }
+  }
+
+  // 兼容旧格式：chat_memory-{team}-agt{agent}
+  const inner = assetId.slice('chat_memory-'.length);
+  const dashAgt = inner.lastIndexOf('-agt');
+  if (dashAgt >= 0) {
+    return { teamId: inner.slice(0, dashAgt), agentId: inner.slice(dashAgt + 1) };
+  }
+
+  return null;
 }
 
 // ============================================================================

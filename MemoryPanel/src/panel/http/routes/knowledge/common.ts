@@ -11,6 +11,7 @@ import { toKernelCredentials, type MetaCallContext } from '../../../kernel/types
 import type { MetaEnvelope } from '../../../kernel/envelope.js';
 import { DomainError } from '../../../domain/errors.js';
 import { respondControlError, respondEnvelope } from '../../envelope.js';
+import type { CodeGraphDetail, WikiDetail } from '../../../kernel/ports/knowledge-client-port.js';
 
 export function buildCtx(c: Context): MetaCallContext {
   const panelMeta = c.get('panelMeta');
@@ -331,6 +332,42 @@ export async function requireKnowledgeRead(
       }
     } catch {
       /* fall through */
+    }
+  }
+
+  // ── 自愈：API/CLI 索引的资源（wiki/code-graph）在 KS 已存在但 meta_asset 未登记时，
+  //    自动补登记（幂等 ensureKnowledgeAsset），随后走与已登记资源相同的 ACL/team 门控。
+  //    这样 UI 点击这类资源也不会再因缺失 meta 行而 404 KNOWLEDGE_NOT_FOUND。
+  const kc = deps.knowledgeClientFactory(ctx.instanceId);
+  const isWiki = knowledgeId.startsWith('wiki-');
+  const isCodeGraph = knowledgeId.startsWith('cg-');
+  if (isWiki || isCodeGraph) {
+    try {
+      const detail = isWiki
+        ? await kc.wikiGet(knowledgeId)
+        : await kc.codeGraphGet(knowledgeId);
+      if (detail && detail.team_id) {
+        const reg = await ensureKnowledgeAsset(deps, ctx, {
+          assetId: knowledgeId,
+          teamId: detail.team_id,
+          assetType: isWiki ? ASSET_TYPE_WIKI : ASSET_TYPE_CODE_GRAPH,
+          name: isWiki
+            ? (detail as WikiDetail).name
+            : (detail as CodeGraphDetail).repo_name || detail.team_id,
+          ownerUserId: userId,
+          serviceUrl: detail.service_url,
+        });
+        if (reg.ok) {
+          const member = await isTeamMember(deps, ctx, detail.team_id, userId);
+          if (!member) return { error: respondControlError(c, 403, 'NOT_TEAM_MEMBER') };
+          // 与 meta 已存在路径一致：返回 asset，让调用方能用 team_id / 权限信息。
+          const refreshed = await deps.metaKernel.invoke('asset/get', { asset_id: knowledgeId }, ctx);
+          const asset = refreshed.code === 0 ? (refreshed.data as KnowledgeAssetMetaRaw | undefined) : undefined;
+          return { userId, asset };
+        }
+      }
+    } catch {
+      /* KS 也没有 → 404 */
     }
   }
 
