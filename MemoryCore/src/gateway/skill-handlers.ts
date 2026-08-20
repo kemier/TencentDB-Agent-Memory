@@ -49,8 +49,8 @@ import { SkillCoreError, type SkillCore } from "../core/skill/skill-core.js";
 import type { SkillExtractor } from "../core/skill/skill-extractor.js";
 import type { Logger } from "../core/types.js";
 import type { Skill, ResolvedSkillConfig } from "../core/skill/types.js";
-import { DEFAULT_COMPRESS_OPTIONS } from "../core/skill/conversation-add/message-compressor.js";
-import { DEFAULT_OVERSIZE_OPTIONS } from "../core/skill/conversation-add/oversize-strategy.js";
+import { DEFAULT_COMPRESS_OPTIONS, type CompressOptions } from "../core/skill/conversation-add/message-compressor.js";
+import { DEFAULT_OVERSIZE_OPTIONS, type OversizeOptions } from "../core/skill/conversation-add/oversize-strategy.js";
 import { prepareArchivePayload } from "../core/skill/conversation-add/prepare-archive.js";
 import type { CompressibleMessage } from "../core/skill/conversation-add/message-compressor.js";
 import { trace } from "../core/report/trace.js";
@@ -791,15 +791,17 @@ export async function handleExtract(body: unknown, auth: V2AuthContext, requestI
   //   ③ 压缩后仍 ≥ chunkMax → 走 oversize 兜底截断 (保留头 + 尾, 中间砍掉)
   // 从 resolvedSkillConfig 取参数; DEFAULT_* 仅作 fallback (standalone 未配置场景)。
   const skillCfg = deps.getResolvedSkillConfig?.();
-  const compressOpts = skillCfg
+  const compressOpts: CompressOptions = skillCfg
     ? {
+        ...DEFAULT_COMPRESS_OPTIONS,
         toolContentThresholdBytes: skillCfg.compress.toolContentThresholdBytes,
         headBytes: skillCfg.compress.headBytes,
         tailBytes: skillCfg.compress.tailBytes,
       }
     : DEFAULT_COMPRESS_OPTIONS;
-  const oversizeOpts = skillCfg
+  const oversizeOpts: OversizeOptions = skillCfg
     ? {
+        ...DEFAULT_OVERSIZE_OPTIONS,
         chunkMaxBytes: skillCfg.extraction.chunkMaxBytes,
         headKeepBytes: skillCfg.extraction.headKeepBytes,
         tailKeepBytes: skillCfg.extraction.tailKeepBytes,

@@ -28,6 +28,8 @@ export interface SharedCosClientOptions {
 export class SharedCosClient {
   constructor(opts: SharedCosClientOptions);
   getClient(): Promise<unknown>;
+  /** 确保 COS bucket 的生成日志生命周期规则已按保留天数配置（真实私有模块提供） */
+  ensureGenerationLogRetention(retentionDays: number): Promise<void>;
 }
 
 export interface CosStorageBackendOptions {

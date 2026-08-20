@@ -904,13 +904,14 @@ export function createL2Runner(opts: {
         logger,
         writeLog: () => l2LogStore.write(l2Log, l2Identity.key),
         writeRefs: vectorStore?.upsertMemoryGenerationRefs && changedProfiles.length > 0
-          ? () => vectorStore.upsertMemoryGenerationRefs!(changedProfiles.map((profile) => ({
+          ? async () => { await vectorStore.upsertMemoryGenerationRefs!(changedProfiles.map((profile) => ({
               generation_ref_id: buildMemoryGenerationRefId("l2", profile.id),
               layer: "l2" as const,
               memory_id: profile.id,
               ...l2Provenance,
               created_at_ms: l2FinishedAt,
             })))
+          }
           : undefined,
       });
       await checkpoint.incrementScenesProcessed();
@@ -956,7 +957,7 @@ export function createL3Runner(opts: {
     let generatedAny = false;
     const l3PromptTargets = executionScopes.map((scope) => {
       const isolation = parseProfileIsolationScope(scope);
-      return { teamId: isolation.teamId, agentId: isolation.agentId, layer: "l3" as const };
+      return { teamId: isolation?.teamId, agentId: isolation?.agentId, layer: "l3" as const };
     });
     const l3Prompts = await resolveMemoryPrompts(vectorStore, l3PromptTargets);
 
@@ -1005,8 +1006,8 @@ export function createL3Runner(opts: {
       const scopeIsolation = parseProfileIsolationScope(scope);
       const l3StartMs = Date.now();
       const resolvedL3Prompt = l3Prompts.get(memoryPromptResolveKey({
-        teamId: scopeIsolation.teamId,
-        agentId: scopeIsolation.agentId,
+        teamId: scopeIsolation?.teamId,
+        agentId: scopeIsolation?.agentId,
         layer: "l3",
       }));
       const generator = new PersonaGenerator({
@@ -1059,10 +1060,10 @@ export function createL3Runner(opts: {
         instance_id: instanceId ?? "standalone",
         layer: "l3",
         status: "succeeded",
-        team_id: scopeIsolation.teamId,
-        agent_id: scopeIsolation.agentId,
-        user_id: scopeIsolation.userId,
-        session_id: scopeIsolation.sessionId,
+        team_id: scopeIsolation?.teamId,
+        agent_id: scopeIsolation?.agentId,
+        user_id: scopeIsolation?.userId,
+        session_id: scopeIsolation?.sessionId,
         prompt: l3PromptRef,
         anchor_memory_id: changedProfiles[0]?.id,
         input_refs: sceneIndex.map((scene) => ({ layer: "l2", record_id: scene.filename })),
@@ -1079,13 +1080,14 @@ export function createL3Runner(opts: {
         logger,
         writeLog: () => l3LogStore.write(l3Log, l3Identity.key),
         writeRefs: vectorStore?.upsertMemoryGenerationRefs && changedProfiles.length > 0
-          ? () => vectorStore.upsertMemoryGenerationRefs!(changedProfiles.map((profile) => ({
+          ? async () => { await vectorStore.upsertMemoryGenerationRefs!(changedProfiles.map((profile) => ({
               generation_ref_id: buildMemoryGenerationRefId("l3", profile.id),
               layer: "l3" as const,
               memory_id: profile.id,
               ...l3Provenance,
               created_at_ms: l3FinishedAt,
             })))
+          }
           : undefined,
       });
 

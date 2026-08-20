@@ -113,6 +113,7 @@ import { initServerOpikTracer } from "../offload_server/opik-tracer.js";
 import { classifyError } from "./error-handler.js";
 import { LocalStorageBackend } from "../core/storage/local-backend.js";
 import { StorageAdapter } from "../core/storage/adapter.js";
+import type { IMemoryStore } from "../core/store/types.js";
 import type { TaskPayload } from "../core/state/types.js";
 import type { TaskExecutor } from "../services/pipeline-worker.js";
 import type { IStateBackend } from "../core/state/types.js";
@@ -623,19 +624,19 @@ export class TdaiGateway {
           tenantId: obsCfg.otel.tenantId,
           logExportIntervalMs: obsCfg.otel.logExportInterval * 1000,
           clickhouse: obsCfg.clickhouse.enabled
-            ? Object.fromEntries([
-                ["endpoint", obsCfg.clickhouse.endpoint],
-                ["username", obsCfg.clickhouse.username],
-                ["password", obsCfg.clickhouse.password],
-                ["database", obsCfg.clickhouse.database],
-              ])
+            ? {
+                endpoint: obsCfg.clickhouse.endpoint,
+                username: obsCfg.clickhouse.username,
+                password: obsCfg.clickhouse.password,
+                database: obsCfg.clickhouse.database,
+              }
             : false,
           langfuse: obsCfg.langfuse.enabled
-            ? Object.fromEntries([
-                ["host", obsCfg.langfuse.host],
-                ["publicKey", obsCfg.langfuse.publicKey],
-                ["secretKey", obsCfg.langfuse.secretKey],
-              ])
+            ? {
+                host: obsCfg.langfuse.host,
+                publicKey: obsCfg.langfuse.publicKey,
+                secretKey: obsCfg.langfuse.secretKey,
+              }
             : false,
         });
         this.logger.info(`OTel SDK initialized: ${otelOk ? "enabled" : "skipped (deps not available)"}`);
