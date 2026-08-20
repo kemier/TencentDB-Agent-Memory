@@ -135,4 +135,13 @@ coverage/
 
 # data path
 MemoryKnowledge
-run
+
+# Local native-run runtime artifacts (start-local.sh): data, logs, pids, keys,
+# and the LIVE config files (which may contain your LLM endpoint / API key).
+# The *.yaml.example templates are the only run/ configs meant to be committed.
+run/data/
+run/logs/
+run/*.pid
+run/.admin-key
+run/tdai-gateway.yaml
+run/proxy.config.yaml

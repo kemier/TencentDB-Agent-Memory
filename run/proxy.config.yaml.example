@@ -1,0 +1,67 @@
+# Context Proxy config — local native run (no Docker)
+# COPY THIS FILE to run/proxy.config.yaml and edit the `upstream` block
+# to point at YOUR LLM endpoint before starting the proxy:
+#
+#   cp run/proxy.config.yaml.example run/proxy.config.yaml
+#
+# The placeholders below are generic OpenAI-compatible defaults.
+server:
+  host: 127.0.0.1
+  port: 8096
+  forwardTimeoutMs: 600000
+
+upstream:
+  url: http://127.0.0.1:8000/v1   # <- your LLM endpoint
+  apiKey: your-api-key            # <- your key (or "" if auth disabled)
+
+log:
+  file: ""
+  level: info
+  backend: console
+
+# tdai 内核对接（memory-core 本地 8420）
+tdai:
+  enabled: true
+  endpoint: "http://127.0.0.1:8420"
+  apiKey: ""
+  serviceId: default
+  memory:
+    enabled: true
+    inject: true
+    writeL0: true
+    recallL1: true
+    injectL2L3: true
+
+skill:
+  endpoint: "http://127.0.0.1:8420"
+  serviceToken: ""
+
+auth:
+  enabled: true
+  url: "http://127.0.0.1:8420"
+  timeoutMs: 5000
+
+sessionInit:
+  enabled: true
+  maxRetries: 3
+  injectAgentContext: true
+  injectTaskContext: true
+  headerAutoSelect:
+    enabled: true
+    teamHeader: "x-team-id"
+    agentHeader: "x-agent-id"
+    taskHeader: "x-task-id"
+    onMismatch: "form"
+
+costGuard:
+  enabled: false
+
+injection:
+  enabled: true
+  injectors:
+    - skill
+    - knowledge
+    - tdai-memory
+
+redis:
+  enabled: false
