@@ -30,6 +30,12 @@ export interface PanelConfig {
     sync: boolean;
     proxyBaseUrl: string;
   };
+  /**
+   * Default MemoryCore user_id for chat_memory data-plane (L0/L1/…).
+   * Align with vscode-acp acp.memory.userId (e.g. zaedinzeng). Panel ACL still
+   * uses meta owner_user_id; this only affects Gateway reads/writes.
+   */
+  defaultGatewayMemoryUserId: string;
 }
 
 function envBool(key: string, fallback: boolean): boolean {
@@ -62,5 +68,6 @@ export function loadPanelConfig(): PanelConfig {
       sync: envBool('KNOWLEDGE_LLM_BINDING_SYNC', true),
       proxyBaseUrl: env('KNOWLEDGE_LLM_PROXY_BASE_URL', 'http://127.0.0.1:8096'),
     },
+    defaultGatewayMemoryUserId: env('DEFAULT_GATEWAY_MEMORY_USER_ID', 'zaedinzeng'),
   };
 }

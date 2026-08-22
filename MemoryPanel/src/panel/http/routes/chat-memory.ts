@@ -42,6 +42,7 @@ import {
 import type { MetaEnvelope } from "../../kernel/envelope.js";
 import { MAX_IMPORTED_AGENTS } from "../../domain/chat-memory-governance.js";
 import { newExternalAssetId } from "../../domain/asset-id.js";
+import { resolveGatewayMemoryUserId } from "../../domain/gateway-memory-user-id.js";
 
 /**
  * 归一化详情页时间筛选器传来的 time_start / time_end。
@@ -84,12 +85,14 @@ interface AssetRaw {
   visibility: string;
   status: string;
   updated_at: string;
+  metadata_json?: string;
 }
 interface AgentRaw {
   agent_id: string;
   team_id: string;
   owner_user_id: string;
   name: string;
+  metadata_json?: string;
 }
 interface FixedAssetRaw {
   asset_id: string;
@@ -536,7 +539,32 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
         ? body.session_id.trim()
         : `imported-${Date.now().toString(36)}`;
 
-    // 走数据面 conversation/add；user_id 用 agent.owner_user_id（数据面按 owner 隔离）
+    // 走数据面 conversation/add；user_id 用 gateway 数据面身份（见 resolveChatMemoryGatewayUserId）
+    const chatMemoryAssetId = `chat_memory-${teamId}-${agentId}`;
+    const assetEnv = await deps.metaKernel.invoke(
+      "asset/get",
+      { asset_id: chatMemoryAssetId },
+      ctx,
+    );
+    const chatAsset: AssetRaw =
+      assetEnv.code === 0 && assetEnv.data
+        ? (assetEnv.data as AssetRaw)
+        : {
+            asset_id: chatMemoryAssetId,
+            team_id: teamId,
+            asset_type: "chat_memory",
+            name: agent.name,
+            owner_user_id: agent.owner_user_id,
+            visibility: "team",
+            status: "active",
+            updated_at: new Date().toISOString(),
+          };
+    const gatewayUserId = await resolveChatMemoryGatewayUserId(deps, ctx, {
+      asset: chatAsset,
+      teamId,
+      agentId,
+    });
+
     const cred = toKernelCredentials(ctx, { timeoutMs: 15_000 });
     const addEnv = await deps.kernelHttp.postEnvelope<{
       accepted_ids?: string[];
@@ -544,7 +572,7 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       "/v3/conversation/add",
       {
         team_id: teamId,
-        user_id: agent.owner_user_id,
+        user_id: gatewayUserId,
         agent_id: agentId,
         session_id: sessionId,
         messages,
@@ -1080,9 +1108,12 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       return respondEnvelope(c, okEnvelope(c, { layer, items: [], total: 0, limit, offset }));
     }
 
-    // chat_memory 数据是 asset owner 写入（用其 user_id 隔离），caller 未必是 owner
-    // （借入场景）。用 asset.owner_user_id 作为数据面 user_id。
-    const ownerUserId = asset.owner_user_id;
+    // chat_memory 数据由 Gateway user_id 隔离（acp.memory.userId），与 Panel owner 可不同。
+    const gatewayUserId = await resolveChatMemoryGatewayUserId(deps, ctx, {
+      asset,
+      teamId: parsed.teamId,
+      agentId: parsed.agentId,
+    });
 
     const cred = toKernelCredentials(ctx, { timeoutMs: 15_000 });
 
@@ -1090,7 +1121,7 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
     const idFields = {
       team_id: parsed.teamId,
       agent_id: parsed.agentId,
-      user_id: ownerUserId,
+      user_id: gatewayUserId,
       session_id: "default",
     };
 
@@ -1471,11 +1502,17 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       if (asset.owner_user_id !== meUserId)
         return respondControlError(c, 403, "NOT_ASSET_OWNER");
 
-      // 数据面按 asset owner 的 user_id 隔离（与 /chat-memory/layer 保持一致）。
+      const gatewayUserId = await resolveChatMemoryGatewayUserId(deps, ctx, {
+        asset,
+        teamId: parsed.teamId,
+        agentId: parsed.agentId,
+      });
+
+      // 数据面按 Gateway user_id 隔离（与 /chat-memory/layer 保持一致）。
       const idFields = {
         team_id: parsed.teamId,
         agent_id: parsed.agentId,
-        user_id: asset.owner_user_id,
+        user_id: gatewayUserId,
         session_id: "default",
       };
 
@@ -1587,11 +1624,17 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
       if (asset.owner_user_id !== meUserId)
         return respondControlError(c, 403, "NOT_ASSET_OWNER");
 
-      // 数据面按 asset owner 的 user_id 隔离（与 /chat-memory/layer 一致）。
+      const gatewayUserId = await resolveChatMemoryGatewayUserId(deps, ctx, {
+        asset,
+        teamId: parsed.teamId,
+        agentId: parsed.agentId,
+      });
+
+      // 数据面按 Gateway user_id 隔离（与 /chat-memory/layer 一致）。
       const idFields = {
         team_id: parsed.teamId,
         agent_id: parsed.agentId,
-        user_id: asset.owner_user_id,
+        user_id: gatewayUserId,
         session_id: "default",
       };
 
@@ -1694,10 +1737,16 @@ export function registerChatMemoryRoutes(api: Hono, deps: PanelDeps): void {
     );
     if (!canRead) return respondControlError(c, 403, "ASSET_NOT_ACCESSIBLE");
 
+    const gatewayUserId = await resolveChatMemoryGatewayUserId(deps, ctx, {
+      asset,
+      teamId: parsed.teamId,
+      agentId: parsed.agentId,
+    });
+
     const idFields = {
       team_id: parsed.teamId,
       agent_id: parsed.agentId,
-      user_id: asset.owner_user_id,
+      user_id: gatewayUserId,
       session_id: "default",
     };
     const cred = toKernelCredentials(ctx, { timeoutMs: 30_000 });
@@ -1976,6 +2025,40 @@ async function resolveCallerUserId(
   if (!data?.valid) return null;
   const uid = data.user?.user_id;
   return typeof uid === "string" && uid.length > 0 ? uid : null;
+}
+
+/**
+ * Resolve MemoryCore user_id for chat_memory data-plane (L0/L1/L2/L3).
+ * ACL still uses meta owner_user_id; this only affects Gateway reads/writes.
+ */
+async function resolveChatMemoryGatewayUserId(
+  deps: PanelDeps,
+  ctx: MetaCallContext,
+  scope: { asset: AssetRaw; teamId: string; agentId: string },
+): Promise<string> {
+  const [agentEnv, teamEnv] = await Promise.all([
+    deps.metaKernel.invoke(
+      "agent/get",
+      { agent_id: scope.agentId },
+      ctx,
+    ),
+    deps.metaKernel.invoke("team/get", { team_id: scope.teamId }, ctx),
+  ]);
+  const agent =
+    agentEnv.code === 0 && agentEnv.data
+      ? (agentEnv.data as AgentRaw)
+      : undefined;
+  const team =
+    teamEnv.code === 0 && teamEnv.data
+      ? (teamEnv.data as { metadata_json?: string })
+      : undefined;
+
+  return resolveGatewayMemoryUserId({
+    asset: scope.asset,
+    agent,
+    team,
+    panelDefault: deps.config.defaultGatewayMemoryUserId,
+  });
 }
 
 /**
