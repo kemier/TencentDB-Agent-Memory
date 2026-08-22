@@ -26,6 +26,17 @@ export interface VerifyUserResult {
 // ── Module state ──────────────────────────────────────────────────────────────
 
 let config: AuthConfig | null = null;
+let gatewayApiKey = "";
+
+/**
+ * The memory-core gateway (tdai) authenticates its /v3/meta/* routes with
+ * `Authorization: Bearer <server.apiKey>`. The proxy's own `auth` section is
+ * Bearer-less, so we carry the gateway's `tdai.apiKey` and send it alongside
+ * the user_key on auth/verify. Set via initAuthGatewayKey() at startup.
+ */
+export function initAuthGatewayKey(apiKey: string | undefined): void {
+  gatewayApiKey = (apiKey ?? "").trim();
+}
 
 /**
  * Initialize the auth client.
@@ -73,12 +84,14 @@ export async function verifyUserKey(userKey: string, serviceId: string): Promise
   if (!userKey) return { userId: "", rejected: true, rejectReason: "missing user_key" };
 
   try {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-tdai-service-id": serviceId,
+    };
+    if (gatewayApiKey) headers["authorization"] = `Bearer ${gatewayApiKey}`;
     const fetchOpts: RequestInit = {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-tdai-service-id": serviceId,
-      },
+      headers,
       body: JSON.stringify({ user_key: userKey }),
     };
     if (config.timeoutMs > 0) {

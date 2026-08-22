@@ -27,7 +27,7 @@ import {
 import { initLogger, shutdownLogger, log } from "./report/log.js";
 import { initClickHouse, shutdownClickHouse } from "./clickhouse.js";
 import { initLangfuse, shutdownLangfuse } from "./langfuse.js";
-import { initAuth } from "./auth.js";
+import { initAuth, initAuthGatewayKey } from "./auth.js";
 import { initSystemUsers } from "./systemUser.js";
 import { checkConnectivity } from "./connectivity.js";
 import { initProxyStorage, getEffectiveBackend } from "./storage/factory.js";
@@ -57,6 +57,7 @@ initLangfuse(config).catch((err: unknown) => {
 
 // ── Initialize auth client (user_key verification + user_id resolution) ──────
 initAuth(config.auth);
+initAuthGatewayKey(config.tdai.apiKey);
 
 // ── Register internal service accounts (bypass whole pipeline on match) ──────
 initSystemUsers(config.systemUsers);
