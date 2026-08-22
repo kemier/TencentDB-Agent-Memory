@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.local.tdai-gateway</string>
+  <key>WorkingDirectory</key>
+  <string>@REPO@/MemoryCore</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>--import</string>
+    <string>tsx</string>
+    <string>src/gateway/server.ts</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>TDAI_GATEWAY_CONFIG</key>
+    <string>@REPO@/MemoryCore/tdai-gateway.mac.yaml</string>
+    <key>TDAI_GATEWAY_API_KEY</key>
+    <string>local</string>
+    <key>TDAI_LLM_API_KEY</key>
+    <string>local</string>
+    <key>LOG_PATH</key>
+    <string>/private/tmp</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/tdai-gateway.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/tdai-gateway.log</string>
+</dict>
+</plist>
