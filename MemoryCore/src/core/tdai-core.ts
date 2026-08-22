@@ -718,7 +718,10 @@ export class TdaiCore {
     const trackingFactory = new MetricTrackingRunnerFactory(runnerFactory, () => this.instanceId);
 
     const l1LlmRunner = useStandaloneRunner
-      ? trackingFactory.createRunner({ enableTools: false })
+      ? trackingFactory.createRunner({
+          enableTools: false,
+          modelRef: this.cfg.extraction.model,
+        })
       : undefined;
     const l2l3LlmRunner = useStandaloneRunner
       ? trackingFactory.createRunner({ enableTools: true })
@@ -1071,7 +1074,10 @@ export class TdaiCore {
     // 用 MetricTrackingRunnerFactory 装饰器包装（非侵入式 credit 上报）
     const trackingFactory = new MetricTrackingRunnerFactory(runnerFactory, () => this.instanceId);
     const llmRunner = useStandaloneRunner
-      ? trackingFactory.createRunner({ enableTools: false })
+      ? trackingFactory.createRunner({
+          enableTools: false,
+          modelRef: this.cfg.extraction.model,
+        })
       : undefined;
 
     const runner = createL1Runner({

@@ -33,6 +33,10 @@ memory:
     enabled: true
     enableDedup: true
     maxMemoriesPerSession: 20
+    # L1 atom extraction: qwen3:14b thinking model routinely hits the 300s
+    # timeout on long Cursor sessions (13k+ char prompts). Use the fast instruct
+    # model here; keep qwen3:14b for L2/L3 via llm.model above.
+    model: "qwen2.5:1.5b-instruct"
 
   persona:
     triggerEveryN: 50

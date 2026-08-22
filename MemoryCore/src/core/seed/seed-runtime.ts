@@ -90,7 +90,10 @@ async function createSeedPipeline(opts: SeedRuntimeOptions): Promise<{ pipeline:
       },
       logger,
     });
-    l1LlmRunner = runnerFactory.createRunner({ enableTools: false });
+    l1LlmRunner = runnerFactory.createRunner({
+      enableTools: false,
+      modelRef: cfg.extraction.model,
+    });
     l2l3LlmRunner = runnerFactory.createRunner({ enableTools: true });
     logger.info(`${TAG} Seed using standalone LLM: model=${cfg.llm.model}`);
   }

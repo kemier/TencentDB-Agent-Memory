@@ -25,7 +25,8 @@ if command -v ollama >/dev/null 2>&1; then
   fi
   if curl -sf "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
     log "Ollama OK at $OLLAMA_URL"
-    for m in qwen2.5:1.5b-instruct nomic-embed-text; do
+    # Must match MemoryCore/tdai-gateway.mac.yaml (llm + extraction + embedding).
+    for m in qwen3:14b qwen2.5:1.5b-instruct bge-m3; do
       if ! curl -sf "$OLLAMA_URL/api/tags" | grep -q "\"name\":\"$m\""; then
         log "Pulling $m..."
         ollama pull "$m" || log "Warning: failed to pull $m"
