@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # All-in-one native memory stack on Mac: Ollama -> Gateway (8420) -> MemoryPanel (8125).
 #
 #   bash scripts/start-all.sh              # start missing services, print status
