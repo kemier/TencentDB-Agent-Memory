@@ -7,7 +7,7 @@ Login-time stack orchestration for vscode-acp local development on macOS.
 | Service | Port | launchd label |
 |---------|------|----------------|
 | MemoryCore Gateway | 8420 | `com.local.tdai-gateway` (KeepAlive) |
-| MemoryPanel | 8125 | `com.local.tdai-panel` (KeepAlive) |
+| MemoryPanel | 8125 | `com.local.tdai-panel` (KeepAlive, binds `0.0.0.0` for LAN access) |
 | Stack bootstrap | — | `com.local.tdai-memory` runs `start-all.sh start` at login |
 | Ollama | 11434 | Homebrew `homebrew.mxcl.ollama` (optional) |
 

@@ -125,16 +125,17 @@ ensure_panel_env() {
   if ! grep -q '^DEFAULT_GATEWAY_MEMORY_USER_ID=' "$env_file" 2>/dev/null; then
     echo 'DEFAULT_GATEWAY_MEMORY_USER_ID=zaedinzeng' >>"$env_file"
   fi
-  # Align with launchd plist (127.0.0.1). HOST=0.0.0.0 lets a nohup panel bind
-  # alongside launchd on the same port → EADDRINUSE crash loop.
+  # Panel bind: 0.0.0.0 exposes :8125 on LAN (Windows/other machines on the same
+  # network). launchd plist uses the same value; nohup fallback still binds
+  # 127.0.0.1 only to avoid dual-listener EADDRINUSE races.
   if grep -q '^HOST=' "$env_file" 2>/dev/null; then
     if [[ "$(uname -s)" == "Darwin" ]]; then
-      sed -i '' 's/^HOST=.*/HOST=127.0.0.1/' "$env_file"
+      sed -i '' 's/^HOST=.*/HOST=0.0.0.0/' "$env_file"
     else
-      sed -i 's/^HOST=.*/HOST=127.0.0.1/' "$env_file"
+      sed -i 's/^HOST=.*/HOST=0.0.0.0/' "$env_file"
     fi
   else
-    echo 'HOST=127.0.0.1' >>"$env_file"
+    echo 'HOST=0.0.0.0' >>"$env_file"
   fi
 }
 
