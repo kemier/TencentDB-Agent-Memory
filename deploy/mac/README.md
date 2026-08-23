@@ -7,8 +7,23 @@ Login-time stack orchestration for vscode-acp local development on macOS.
 | Service | Port | launchd label |
 |---------|------|----------------|
 | MemoryCore Gateway | 8420 | `com.local.tdai-gateway` (KeepAlive) |
-| MemoryPanel | 8125 | started by `com.local.tdai-memory` via `start-all.sh` |
+| MemoryPanel | 8125 | `com.local.tdai-panel` (KeepAlive) |
+| Stack bootstrap | — | `com.local.tdai-memory` runs `start-all.sh start` at login |
 | Ollama | 11434 | Homebrew `homebrew.mxcl.ollama` (optional) |
+
+### Ollama models (Mac)
+
+| Ollama name | Source | Used for |
+|---|---|---|
+| `qwen3.8-4b-distill` | `empero-ai/Qwen3.8-4B-Distill-GGUF` (Q4_K_M via `HF_ENDPOINT=https://hf-mirror.com`) | L2/L3 memory summarization (`llm.model`) |
+| `qwen2.5:1.5b-instruct` | Ollama library | L1 atom extraction (`memory.extraction.model`) |
+| `bge-m3` | Ollama library | Embeddings |
+
+Install / refresh the distill model:
+
+```bash
+HF_ENDPOINT=https://hf-mirror.com bash deploy/mac/install-qwen3.8-4b-distill-ollama.sh
+```
 
 ## Install
 

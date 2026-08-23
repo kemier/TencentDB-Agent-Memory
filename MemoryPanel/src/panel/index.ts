@@ -19,7 +19,10 @@ export function main(): void {
         instancesConfig: config.metadataInstancesConfig,
       });
     },
-  );
+  ).on('error', (err: NodeJS.ErrnoException) => {
+    deps.logger.error('panel listen failed', { code: err.code, message: err.message });
+    process.exit(1);
+  });
 
   // Best-effort: ensure per-instance knowledge-service LLM bindings (design 009 §4.2).
   // Non-blocking; failures are logged and left for manual recovery.

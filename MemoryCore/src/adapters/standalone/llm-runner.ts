@@ -21,6 +21,7 @@ import path from "node:path";
 import { generateText, tool, stepCountIs, hasToolCall, jsonSchema, type ToolSet } from "ai";
 import { createDoneTool } from "./done-tool.js";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOllamaThinkFetch, type OllamaThinkMode } from "./ollama-openai-fetch.js";
 import { report } from "../../core/report/reporter.js";
 import type { AttributeValue } from "@opentelemetry/api";
 import type {
@@ -128,6 +129,11 @@ export interface StandaloneLLMConfig {
     /** 是否用 memory systemUser.userKey 作为 Authorization（默认 true）。 */
     useMemorySystemUserKey?: boolean;
   };
+  /**
+   * Ollama thinking mode for local models (qwen3.x distill, etc.).
+   * Maps to native /api/chat `think` — use false for fast L2/L3 summarization.
+   */
+  ollamaThink?: OllamaThinkMode;
 }
 
 // ============================
@@ -313,9 +319,14 @@ export class StandaloneLLMRunner implements LLMRunner {
     // Create OpenAI-compatible provider via AI SDK
     // Use "compatible" mode to call /chat/completions (not Responses API),
     // which works with all OpenAI-compatible backends (DeepSeek, Qwen, etc.)
+    const fetchFn =
+      this.config.ollamaThink !== undefined
+        ? createOllamaThinkFetch(this.config.baseUrl, this.config.ollamaThink)
+        : undefined;
     const provider = createOpenAI({
       baseURL: this.config.baseUrl,
       apiKey: this.config.apiKey,
+      ...(fetchFn ? { fetch: fetchFn } : {}),
     });
 
     // Select tools based on mode + storage

@@ -6,7 +6,8 @@
 #
 # Installs:
 #   com.local.tdai-gateway  — KeepAlive MemoryCore gateway (:8420)
-#   com.local.tdai-memory   — RunAtLoad: scripts/start-all.sh start (panel + kickstart gateway)
+#   com.local.tdai-panel    — KeepAlive MemoryPanel (:8125)
+#   com.local.tdai-memory   — RunAtLoad: scripts/start-all.sh start (ollama + kickstart services)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,7 +25,14 @@ install_one() {
   local dst="$DEST/$label.plist"
   render "$template" "$dst"
   launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
-  launchctl bootstrap "$DOMAIN" "$dst"
+  # Brief pause so KeepAlive jobs fully release the port before re-bootstrap.
+  sleep 0.5
+  if ! launchctl bootstrap "$DOMAIN" "$dst" 2>/dev/null; then
+    # Bootstrap error 5 = already loaded; bootout again and retry once.
+    launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
+    sleep 0.5
+    launchctl bootstrap "$DOMAIN" "$dst"
+  fi
   ok "Installed $label"
 }
 
@@ -43,11 +51,13 @@ chmod +x "$ROOT/scripts/start-all.sh"
 case "${1:-install}" in
   install)
     install_one "com.local.tdai-gateway" "$ROOT/deploy/mac/com.local.tdai-gateway.plist"
+    install_one "com.local.tdai-panel" "$ROOT/deploy/mac/com.local.tdai-panel.plist"
     install_one "com.local.tdai-memory" "$ROOT/deploy/mac/com.local.tdai-memory.plist"
     bash "$ROOT/scripts/start-all.sh" restart
     ;;
   uninstall)
     uninstall_one "com.local.tdai-memory"
+    uninstall_one "com.local.tdai-panel"
     uninstall_one "com.local.tdai-gateway"
     bash "$ROOT/scripts/start-all.sh" stop || true
     ;;

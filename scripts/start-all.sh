@@ -13,7 +13,7 @@
 # Services:
 #   Ollama        :11434  (brew services / homebrew launchd)
 #   tdai-gateway  :8420   (com.local.tdai-gateway KeepAlive launchd when installed)
-#   MemoryPanel   :8125   (nohup; log /tmp/memory-panel.log)
+#   MemoryPanel   :8125   (com.local.tdai-panel KeepAlive launchd when installed)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,6 +25,7 @@ PANEL_PIDFILE="/tmp/memory-panel.pid"
 GATEWAY_PIDFILE="/tmp/memory-core.pid"
 GATEWAY_LOG="/tmp/memory-core.log"
 LAUNCHD_GATEWAY_LABEL="com.local.tdai-gateway"
+LAUNCHD_PANEL_LABEL="com.local.tdai-panel"
 LAUNCHD_MEMORY_LABEL="com.local.tdai-memory"
 GATEWAY_URL="${GATEWAY_URL:-http://127.0.0.1:8420}"
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
@@ -47,6 +48,21 @@ warn() { printf '  WARN %s\n' "$*"; }
 fail() { printf '  FAIL %s\n' "$*" >&2; }
 
 healthy() { curl -sf -m 2 "$1" >/dev/null 2>&1; }
+
+panel_launchd_installed() {
+  [[ -f "$HOME/Library/LaunchAgents/$LAUNCHD_PANEL_LABEL.plist" ]]
+}
+
+kill_port_listeners() {
+  local port="$1"
+  local pids
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  if [[ -n "${pids:-}" ]]; then
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 0.5
+  fi
+}
 
 start_ollama() {
   if healthy "$OLLAMA_URL/api/tags"; then
@@ -109,22 +125,46 @@ ensure_panel_env() {
   if ! grep -q '^DEFAULT_GATEWAY_MEMORY_USER_ID=' "$env_file" 2>/dev/null; then
     echo 'DEFAULT_GATEWAY_MEMORY_USER_ID=zaedinzeng' >>"$env_file"
   fi
+  # Align with launchd plist (127.0.0.1). HOST=0.0.0.0 lets a nohup panel bind
+  # alongside launchd on the same port → EADDRINUSE crash loop.
+  if grep -q '^HOST=' "$env_file" 2>/dev/null; then
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      sed -i '' 's/^HOST=.*/HOST=127.0.0.1/' "$env_file"
+    else
+      sed -i 's/^HOST=.*/HOST=127.0.0.1/' "$env_file"
+    fi
+  else
+    echo 'HOST=127.0.0.1' >>"$env_file"
+  fi
 }
 
 stop_panel() {
-  local pid=""
-  if [[ -f "$PANEL_PIDFILE" ]]; then
-    pid="$(cat "$PANEL_PIDFILE" 2>/dev/null || true)"
+  local mode="${1:-soft}"
+  if launchctl list 2>/dev/null | grep -q "$LAUNCHD_PANEL_LABEL"; then
+    if [[ "$mode" == "hard" ]]; then
+      launchctl bootout "gui/$(id -u)/$LAUNCHD_PANEL_LABEL" 2>/dev/null && ok "Stopped launchd panel" \
+        || warn "Could not bootout $LAUNCHD_PANEL_LABEL"
+    else
+      launchctl kickstart -k "gui/$(id -u)/$LAUNCHD_PANEL_LABEL" 2>/dev/null || true
+      ok "Restarted launchd panel ($LAUNCHD_PANEL_LABEL)"
+    fi
+  else
+    local pid=""
+    if [[ -f "$PANEL_PIDFILE" ]]; then
+      pid="$(cat "$PANEL_PIDFILE" 2>/dev/null || true)"
+    fi
+    if [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      ok "Stopped MemoryPanel (pid=$pid)"
+    fi
   fi
-  if [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null; then
-    kill "$pid" 2>/dev/null || true
-    ok "Stopped MemoryPanel (pid=$pid)"
-  fi
-  local port_pid
-  port_pid="$(lsof -tiTCP:8125 -sTCP:LISTEN 2>/dev/null || true)"
-  if [[ -n "${port_pid:-}" ]]; then
-    kill "$port_pid" 2>/dev/null || true
-    ok "Stopped listener on :8125 (pid=$port_pid)"
+  if [[ "$mode" == "hard" ]]; then
+    local port_pid
+    port_pid="$(lsof -tiTCP:8125 -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "${port_pid:-}" ]]; then
+      kill "$port_pid" 2>/dev/null || true
+      ok "Stopped listener on :8125 (pid=$port_pid)"
+    fi
   fi
   rm -f "$PANEL_PIDFILE"
 }
@@ -135,17 +175,34 @@ start_panel() {
     ok "MemoryPanel serving at $PANEL_URL"
     return
   fi
-  if healthy "$PANEL_URL/"; then
-    stop_panel
-    sleep 1
-  fi
   ensure_panel_env
-  log "Starting MemoryPanel (log=$PANEL_LOG)..."
-  cd "$PANEL"
-  [[ -d node_modules ]] || npm install
-  nohup node --import tsx src/index.ts >>"$PANEL_LOG" 2>&1 &
-  echo $! >"$PANEL_PIDFILE"
-  disown 2>/dev/null || true
+  if panel_launchd_installed || launchctl list 2>/dev/null | grep -q "$LAUNCHD_PANEL_LABEL"; then
+    if healthy "$PANEL_URL/" && [[ "$force" != "1" ]]; then
+      ok "MemoryPanel serving at $PANEL_URL"
+      return
+    fi
+    if ! launchctl list 2>/dev/null | grep -q "$LAUNCHD_PANEL_LABEL"; then
+      log "Panel launchd plist present but not loaded — bootstrapping $LAUNCHD_PANEL_LABEL ..."
+      launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/$LAUNCHD_PANEL_LABEL.plist" \
+        || warn "bootstrap failed (may already be loaded)"
+    else
+      log "Panel — kickstart $LAUNCHD_PANEL_LABEL ..."
+      kill_port_listeners 8125
+      launchctl kickstart -k "gui/$(id -u)/$LAUNCHD_PANEL_LABEL" || warn "kickstart failed"
+    fi
+  else
+    if healthy "$PANEL_URL/"; then
+      stop_panel soft
+      sleep 1
+    fi
+    kill_port_listeners 8125
+    log "Starting MemoryPanel via nohup (log=$PANEL_LOG)..."
+    cd "$PANEL"
+    [[ -d node_modules ]] || npm install
+    HOST=127.0.0.1 PORT=8125 nohup node --import tsx src/index.ts >>"$PANEL_LOG" 2>&1 &
+    echo $! >"$PANEL_PIDFILE"
+    disown 2>/dev/null || true
+  fi
   for _ in $(seq 1 20); do healthy "$PANEL_URL/" && break; sleep 1; done
   if healthy "$PANEL_URL/"; then
     ok "MemoryPanel serving at $PANEL_URL"
@@ -201,7 +258,7 @@ case "$cmd" in
     status_all
     ;;
   stop|--stop)
-    stop_panel
+    stop_panel hard
     stop_gateway hard
     ;;
   restart|--restart)

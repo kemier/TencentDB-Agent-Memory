@@ -447,6 +447,15 @@ export function loadGatewayConfig(overrides?: Partial<GatewayConfig>): GatewayCo
   const rawLlmProvider = env("TDAI_LLM_PROVIDER") ?? str(llmConfig, "provider");
   const llmProvider: "openai" | "proxy" =
     rawLlmProvider === "proxy" ? "proxy" : "openai";
+  const rawOllamaThink = env("TDAI_LLM_OLLAMA_THINK") ?? str(llmConfig, "ollamaThink");
+  const ollamaThink: StandaloneLLMConfig["ollamaThink"] =
+    rawOllamaThink === "false" || rawOllamaThink === "0"
+      ? false
+      : rawOllamaThink === "true" || rawOllamaThink === "1"
+        ? true
+        : rawOllamaThink === "low" || rawOllamaThink === "medium" || rawOllamaThink === "high"
+          ? rawOllamaThink
+          : undefined;
   const llm: StandaloneLLMConfig = {
     baseUrl: env("TDAI_LLM_BASE_URL") ?? str(llmConfig, "baseUrl") ?? "https://api.openai.com/v1",
     apiKey: env("TDAI_LLM_API_KEY") ?? str(llmConfig, "apiKey") ?? "",
@@ -454,6 +463,7 @@ export function loadGatewayConfig(overrides?: Partial<GatewayConfig>): GatewayCo
     maxTokens: envInt("TDAI_LLM_MAX_TOKENS") ?? num(llmConfig, "maxTokens") ?? 4096,
     timeoutMs: envInt("TDAI_LLM_TIMEOUT_MS") ?? num(llmConfig, "timeoutMs") ?? 120_000,
     provider: llmProvider,
+    ollamaThink,
     proxy: {
       useMemorySystemUserKey: bool(llmProxyConfig, "useMemorySystemUserKey") ?? true,
     },
@@ -488,6 +498,7 @@ export function loadGatewayConfig(overrides?: Partial<GatewayConfig>): GatewayCo
       maxTokens: llm.maxTokens ?? 4096,
       timeoutMs: llm.timeoutMs ?? 120_000,
       provider: llm.provider,
+      ollamaThink: llm.ollamaThink,
       proxy: {
         useMemorySystemUserKey: llm.proxy?.useMemorySystemUserKey ?? true,
       },
