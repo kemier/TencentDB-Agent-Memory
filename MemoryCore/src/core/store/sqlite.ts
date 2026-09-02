@@ -728,7 +728,7 @@ export class VectorStore implements IMemoryStore {
 
     this.stmtGetMeta = this.db.prepare(`
       SELECT content, type, priority, scene_name, session_key, session_id, team_id, task_id, user_id, agent_id,
-             version, timestamp_str, timestamp_start, timestamp_end, metadata_json
+             version, timestamp_str, timestamp_start, timestamp_end, metadata_json, source_message_ids
       FROM l1_records WHERE record_id = ?
     `);
 
@@ -1138,12 +1138,14 @@ export class VectorStore implements IMemoryStore {
       this.stmtL1FtsDelete = this.db.prepare("DELETE FROM l1_fts WHERE record_id = ?");
 
       this.stmtL1FtsSearch = this.db.prepare(`
-        SELECT record_id, content_original AS content, type, priority, scene_name,
-               session_key, session_id, team_id, task_id, user_id, agent_id, version,
-               timestamp_str, timestamp_start, timestamp_end,
-               metadata_json,
+        SELECT f.record_id, f.content_original AS content, f.type, f.priority, f.scene_name,
+               f.session_key, f.session_id, f.team_id, f.task_id, f.user_id, f.agent_id, f.version,
+               f.timestamp_str, f.timestamp_start, f.timestamp_end,
+               f.metadata_json,
+               r.source_message_ids,
                bm25(l1_fts) AS rank
-        FROM l1_fts
+        FROM l1_fts f
+        LEFT JOIN l1_records r ON r.record_id = f.record_id
         WHERE l1_fts MATCH ?
         ORDER BY rank ASC
         LIMIT ?
@@ -1531,6 +1533,7 @@ export class VectorStore implements IMemoryStore {
               timestamp_start: string;
               timestamp_end: string;
               metadata_json: string;
+              source_message_ids?: string;
             }
           | undefined;
 
@@ -1566,6 +1569,7 @@ export class VectorStore implements IMemoryStore {
           user_id: meta.user_id ?? "",
           agent_id: meta.agent_id ?? "",
           metadata_json: meta.metadata_json,
+          source_message_ids: meta.source_message_ids,
         });
       }
 
@@ -3175,8 +3179,9 @@ export class VectorStore implements IMemoryStore {
         timestamp_start: string;
         timestamp_end: string;
         metadata_json: string;
+        source_message_ids?: string;
         rank: number;
-      }>;
+      }>; 
 
       return rows
         .filter((r) => rowMatchesIsolation(r, filter))
@@ -3199,7 +3204,8 @@ export class VectorStore implements IMemoryStore {
           user_id: r.user_id ?? "",
           agent_id: r.agent_id ?? "",
           metadata_json: r.metadata_json,
-        }));
+          source_message_ids: r.source_message_ids,
+        })); 
     } catch (err) {
       this.logger?.warn(
         `${TAG} [L1-fts-search] FAILED (non-fatal, returning empty): ${err instanceof Error ? err.message : String(err)}`,

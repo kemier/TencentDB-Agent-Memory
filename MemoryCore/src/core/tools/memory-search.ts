@@ -208,12 +208,13 @@ export async function executeMemorySearch(params: {
           scene_name: r.scene_name,
           score: r.score,
           team_id: r.team_id,
-      user_id: r.user_id,
-      agent_id: r.agent_id,
-      task_id: r.task_id,
-      version: r.version ?? 0,
+          user_id: r.user_id,
+          agent_id: r.agent_id,
+          task_id: r.task_id,
+          version: r.version ?? 0,
           created_at: r.timestamp_start,
           updated_at: r.timestamp_end,
+          source_message_ids: r.source_message_ids,
         }));
       } catch (err) {
         logger?.warn?.(
@@ -244,12 +245,13 @@ export async function executeMemorySearch(params: {
           scene_name: r.scene_name,
           score: r.score,
           team_id: r.team_id,
-      user_id: r.user_id,
-      agent_id: r.agent_id,
-      task_id: r.task_id,
-      version: r.version ?? 0,
+          user_id: r.user_id,
+          agent_id: r.agent_id,
+          task_id: r.task_id,
+          version: r.version ?? 0,
           created_at: r.timestamp_start,
           updated_at: r.timestamp_end,
+          source_message_ids: r.source_message_ids,
         }));
       } catch (err) {
         logger?.warn?.(
