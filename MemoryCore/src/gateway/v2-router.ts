@@ -413,6 +413,7 @@ type RouteHandler = (
 const DATAPLANE_HANDLERS: Record<string, RouteHandler> = {
   "/conversation/add": handleConversationAdd,
   "/conversation/query": handleConversationQuery,
+  "/conversation/get-by-ids": handleConversationGetByIds,
   "/conversation/search": handleConversationSearch,
   "/conversation/delete": handleConversationDelete,
   "/conversation/count": handleConversationCount,
@@ -814,6 +815,54 @@ async function handleConversationAdd(body: unknown, auth: V2AuthContext, request
     { accepted_ids: acceptedIds, accepted_versions: acceptedIds.map(() => "v1"), total_count: acceptedIds.length },
     requestId,
   );
+}
+
+/** POST /v3/conversation/get-by-ids — fetch raw L0 messages by record IDs. */
+async function handleConversationGetByIds(body: unknown, _auth: V2AuthContext, requestId: string, deps: V2RouterDeps): Promise<ApiResponseEnvelope> {
+  const { z } = await import("zod");
+  const schema = z.object({
+    conversation_ids: z.array(z.string()).min(1).max(50),
+    limit: z.number().optional(),
+  });
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return errorEnvelope(400, formatZodError(parsed.error), requestId);
+  const { conversation_ids } = parsed.data;
+  const limit = parsed.data.limit ?? 100;
+
+  const store = deps.getStore();
+  if (!store) return errorEnvelope(503, "Store not available", requestId);
+
+  // Fetch L0 records by their record IDs
+  const iso = deps.requestIsolation;
+  const rows: Array<{ record_id: string; role: string; message_text: string; recorded_at: string; session_id: string }> = [];
+
+  for (const id of conversation_ids) {
+    try {
+      const result = await store.queryL0Paginated({
+        limit: 1,
+        offset: 0,
+        recordId: id,
+        teamId: iso?.teamId,
+        userId: iso?.userId,
+        agentId: iso?.agentId,
+      });
+      if (result.rows.length > 0) {
+        for (const row of result.rows) {
+          rows.push({
+            record_id: row.record_id,
+            role: row.role,
+            message_text: row.message_text,
+            recorded_at: row.recorded_at,
+            session_id: row.session_id,
+          });
+        }
+      }
+    } catch {
+      // Skip missing records
+    }
+  }
+
+  return successEnvelope({ messages: rows.slice(0, limit), total: rows.length }, requestId);
 }
 
 async function handleConversationQuery(body: unknown, _auth: V2AuthContext, requestId: string, deps: V2RouterDeps): Promise<ApiResponseEnvelope> {
@@ -1270,6 +1319,11 @@ async function handleAtomicSearch(body: unknown, auth: V2AuthContext, requestId:
     agent_id: r.agent_id,
     task_id: r.task_id,
     created_at: r.created_at, updated_at: r.updated_at, score: r.score,
+    source_message_ids: r.source_message_ids
+      ? (typeof r.source_message_ids === 'string'
+          ? JSON.parse(r.source_message_ids as string)
+          : r.source_message_ids)
+      : undefined,
   }));
 
   return successEnvelope<AtomicSearchData>({ items }, requestId);

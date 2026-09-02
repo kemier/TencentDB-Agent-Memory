@@ -153,6 +153,8 @@ export interface AtomicDetail extends Omit<GeneratedAtomicDetail, "version"> {
   user_id?: string;
   agent_id?: string;
   task_id?: string;
+  /** JSON array of L0 record IDs that contributed to this L1 memory. */
+  source_message_ids?: string[];
 }
 
 export interface AtomicQueryData {

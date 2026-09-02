@@ -72,6 +72,8 @@ export interface L1SearchResult {
   user_id: string;
   agent_id: string;
   metadata_json: string;
+  /** JSON array of L0 record IDs that contributed to this L1 memory. */
+  source_message_ids?: string;
 }
 
 /** Result from an L1 FTS keyword search. */
@@ -131,6 +133,8 @@ export interface L1RecordRow {
   created_time: string;
   updated_time: string;
   metadata_json: string;
+  /** JSON array of L0 record IDs that contributed to this L1 memory. */
+  source_message_ids?: string;
 }
 
 // ============================
@@ -307,6 +311,8 @@ export interface L0CountFilter {
   userId?: string;
   agentId?: string;
   taskId?: string;
+  /** Filter by a specific record ID (for L1→L0 drill-down). */
+  recordId?: string;
   /** Timestamp >= (epoch ms, inclusive). */
   timeStartMs?: number;
   /** Timestamp <= (epoch ms, inclusive). */

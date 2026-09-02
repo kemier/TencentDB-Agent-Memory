@@ -33,6 +33,8 @@ export interface MemorySearchResultItem {
   version: number;
   created_at: string;
   updated_at: string;
+  /** JSON array of L0 record IDs that contributed to this L1 memory. */
+  source_message_ids?: string;
 }
 
 export interface MemorySearchResult {
@@ -165,6 +167,7 @@ export async function executeMemorySearch(params: {
       version: r.version ?? 0,
       created_at: r.timestamp_start,
       updated_at: r.timestamp_end,
+      source_message_ids: (r as any).source_message_ids,
     }));
 
     // Apply secondary filters
