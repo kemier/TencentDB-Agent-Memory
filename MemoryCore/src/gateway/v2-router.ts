@@ -153,6 +153,7 @@ function collectV3Missing(
 const V3_ALLOWED_SUBPATHS = new Set<string>([
   "/conversation/add",
   "/conversation/query",
+  "/conversation/get-by-ids",
   "/conversation/search",
   "/conversation/delete",
   "/conversation/count",
