@@ -77,7 +77,9 @@ function rowToMemoryRecord(row: L1RecordRow): MemoryRecord {
     type: row.type as MemoryType,
     priority: row.priority,
     scene_name: row.scene_name,
-    source_message_ids: [], // not stored in SQLite (vector search doesn't need them)
+    source_message_ids: row.source_message_ids
+      ? JSON.parse(row.source_message_ids as string)
+      : [],
     metadata,
     timestamps,
     createdAt: row.created_time,

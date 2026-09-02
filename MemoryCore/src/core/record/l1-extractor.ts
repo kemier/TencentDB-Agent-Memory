@@ -220,7 +220,9 @@ export async function extractL1Memories(params: {
         content: mem.content,
         type: memType,
         priority: typeof mem.priority === "number" ? mem.priority : 50,
-        source_message_ids: Array.isArray(mem.source_message_ids) ? mem.source_message_ids : [],
+        source_message_ids: Array.isArray(mem.source_message_ids) && mem.source_message_ids.length > 0
+          ? mem.source_message_ids
+          : params.messages.map((m: any) => m.id as string),
         metadata: mem.metadata ?? {},
         scene_name: scene.scene_name,
       });
