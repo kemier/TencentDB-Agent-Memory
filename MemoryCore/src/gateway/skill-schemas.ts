@@ -209,6 +209,8 @@ export const listingRequestSchema = z.object({
   ...idFieldsShape,
   query: z.string().max(2048).optional(),
   char_budget: z.number().int().min(0).max(64_000).optional(),
+  /** When "team", the handler strips agent_id so the listing includes skills from all agents in the team (no owner filter). Default: own agent only. */
+  scope: z.enum(["team"]).optional(),
 }).superRefine(refineAgentNeedsTeam);
 
 /**

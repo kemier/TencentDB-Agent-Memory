@@ -677,6 +677,12 @@ export async function handleListing(body: unknown, _auth: V2AuthContext, request
     const query = (pre.data.query ?? "").trim();
     const useSearch = query.length > 0;
 
+    // scope="team" → strip agent_id so the listing includes skills from all
+    // agents in the team (no owner_agent_id filter). Mirrors handleSearch.
+    // The v3 isolation middleware already verified team_id + agent_id + user_id.
+    const teamWide = pre.data.scope === "team";
+    const agentId = teamWide ? undefined : pre.data.agent_id;
+
     // 从配置读 routing：searchTopK（listing 最多注入多少条）+ mode（bm25/embedding/hybrid）。
     const routing = deps.getResolvedSkillConfig?.()?.routing;
     const topK = routing?.searchTopK ?? 20;
@@ -689,7 +695,7 @@ export async function handleListing(body: unknown, _auth: V2AuthContext, request
       const hits = await pre.core.search({
         user_id: pre.data.user_id,
         team_id: pre.data.team_id,
-        agent_id: pre.data.agent_id,
+        agent_id: agentId,
         query,
         top_k: topK,
         mode: routing?.mode,
@@ -705,7 +711,7 @@ export async function handleListing(body: unknown, _auth: V2AuthContext, request
       const r = await pre.core.list({
         user_id: pre.data.user_id,
         team_id: pre.data.team_id,
-        agent_id: pre.data.agent_id,
+        agent_id: agentId,
         pagination: { limit: topK },
       });
       items = r.items.map((s) => ({
