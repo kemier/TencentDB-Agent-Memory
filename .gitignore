@@ -134,8 +134,8 @@ coverage/
 # Local project docs (generated, not for VCS)
 .local-docs/
 
-# data path
-MemoryKnowledge
+ # data path
+ MemoryKnowledge/data/**
 
 # Local native-run runtime artifacts (start-local.sh): data, logs, pids, keys,
 # and the LIVE config files (which may contain your LLM endpoint / API key).
