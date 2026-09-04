@@ -1893,7 +1893,12 @@ export class MetadataService {
     patch: Partial<AssetEntity>,
     ctx: V3AuthContext,
   ): Promise<AssetEntity> {
-    await this.assertCallerIsAssetOwner(ctx, assetId);
+    // Owner OR team admin. Panel shared/private toggle is shown when the
+    // caller owns the agent (Agent-assets tab); legacy skill meta rows may
+    // still be owned by a username id (e.g. zaedinzeng) while the panel
+    // login is usr-…. Team admins (acp-admin) must still be able to flip
+    // visibility — same gate as listAclByAssetForCaller.
+    await this.assertCallerIsAssetOwnerOrTeamAdmin(ctx, assetId);
     return this.updateAsset(assetId, patch);
   }
 
