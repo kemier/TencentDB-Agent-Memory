@@ -203,8 +203,22 @@ export function useSkillsPanel() {
           ]);
           if (seq !== refreshSeqRef.current) return; // 已被后续请求取代
           const vm: Record<string, Asset['visibility']> = {};
-          for (const a of accessible) vm[a.asset_id] = a.visibility;
-          setSkills(listRes.items);
+          // Meta owner is the source of truth for shared/private toggle + delete.
+          // Data-plane skill.owner_user_id can diverge (e.g. gateway user_id
+          // "zaedinzeng" vs panel login "usr-…"), which hid the Segment when
+          // ownerIsMe compared the wrong id.
+          const metaOwnerById: Record<string, string> = {};
+          for (const a of accessible) {
+            vm[a.asset_id] = a.visibility;
+            if (a.owner_user_id) metaOwnerById[a.asset_id] = a.owner_user_id;
+          }
+          const items = listRes.items.map((s) => {
+            const metaOwner = metaOwnerById[s.skill_id];
+            return metaOwner && metaOwner !== s.owner_user_id
+              ? { ...s, owner_user_id: metaOwner }
+              : s;
+          });
+          setSkills(items);
           setVisibilityMap(vm);
         }
       }

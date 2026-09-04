@@ -217,8 +217,16 @@ export default function SkillsPanel({
                   : t('skills.empty.team')
             }
             renderItem={(s) => {
+              // Prefer meta-aligned owner_user_id (see useSkillsPanel fixed-tab remap).
               const ownerIsMe = !!myUserId && s.owner_user_id === myUserId;
-              const canManage = ownerIsMe;
+              // Fallback: on Agent-assets tab, skills are filtered by owner_agent_id
+              // for an agent the current user owns (teamAgents). If meta remap
+              // missed a row, still allow manage so shared/private is reachable.
+              const ownsSelectedAgent =
+                tab === 'fixed' &&
+                !!selectedAgent &&
+                teamAgents.some((a) => a.id === selectedAgent);
+              const canManage = ownerIsMe || ownsSelectedAgent;
               const vis = visibilityMap[s.skill_id];
               return (
                 <>
@@ -250,16 +258,17 @@ export default function SkillsPanel({
 
                   <AssetItemBadges>
                     {s.owner_user_id && (
-                      <SkillOwnerTag userId={s.owner_user_id} isCurrentUser={ownerIsMe} />
+                      <SkillOwnerTag userId={s.owner_user_id} isCurrentUser={ownerIsMe || ownsSelectedAgent} />
                     )}
                     <AssetItemTime>{new Date(s.updated_at_ms).toLocaleString()}</AssetItemTime>
                   </AssetItemBadges>
 
                   {/* 共享/私密切换：原「个人资产」tab 的能力，迁到「Agent 资产」tab，
-                      仅 owner 可切；owner 视角 getAssets 已关闭 visibility 过滤，
+                      仅 owner（或当前用户拥有的 agent 下的固定资产）可切；
+                      owner 视角 getAssets 已关闭 visibility 过滤，
                       private skill 也能拿到 vis。即便 vis 偶发缺失也按 private 兜底渲染，
                       避免 skill 被切成 private 后切换按钮消失、无法再切回 team。 */}
-                  {tab === 'fixed' && ownerIsMe && (
+                  {tab === 'fixed' && canManage && (
                     <div style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
                       <Segment
                         value={vis === 'team' ? 'team' : 'private'}
