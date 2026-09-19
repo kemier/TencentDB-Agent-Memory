@@ -3,7 +3,8 @@
 # ============================================================
 # LLM: qwen3.8-4b-distill (empero-ai/Qwen3.8-4B-Distill-GGUF Q4_K_M via HF mirror + Ollama)
 #       for L2/L3 memory summarization (persona + scene extraction).
-# L1 atom extraction stays on qwen2.5:1.5b-instruct (fast, high-frequency).
+# L1 + L2 share qwen3.8-4b-distill (ollamaThink: false) so only one LLM weight
+#       is resident (~3.5GB) + bge-m3 — better fit than L1=7b + L2=distill.
 # Embedding: bge-m3 (1024d) via Ollama; hybrid recall
 # Fallback LLM: vllm-proxy qwythos → 192.168.124.14:8008 (base_url http://127.0.0.1:8317/v1)
 # ============================================================
@@ -37,10 +38,9 @@ memory:
     enabled: true
     enableDedup: true
     maxMemoriesPerSession: 20
-    # L1 atom extraction: qwen3:14b thinking model routinely hits the 300s
-    # timeout on long Cursor sessions (13k+ char prompts). Use the fast instruct
-    # model here; keep qwen3:14b for L2/L3 via llm.model above.
-    model: "qwen2.5:1.5b-instruct"
+    # L1 shares distill with L2 (inherits llm.ollamaThink: false). One resident
+    # weight avoids 7b+distill RAM thrash; roll back to qwen2.5:7b if under-extract.
+    model: "qwen3.8-4b-distill"
 
   persona:
     triggerEveryN: 50
