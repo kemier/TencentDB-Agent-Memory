@@ -180,7 +180,7 @@ export interface TcvdbConfig {
 }
 
 /** Storage backend type. */
-export type StoreBackend = "sqlite" | "tcvdb";
+export type StoreBackend = "sqlite" | "tcvdb" | "mongodb";
 
 /** Report settings — controls metric/event reporting. */
 export interface ReportConfig {
@@ -226,6 +226,22 @@ export interface StandaloneLLMOverrideConfig {
     /** 是否用 memory systemUser.userKey 作为 Authorization（默认 true）。 */
     useMemorySystemUserKey?: boolean;
   };
+  /**
+   * 是否用流式请求(streamText)调用上游。默认 false(generateText 非流式)。
+   * 个别 OpenAI 兼容上游只接受流式请求时置 true。
+   *
+   * ⚠️ 仅在 standalone LLM 路径生效(即 llm.enabled=true 时,memory 用自带的
+   * StandaloneLLMRunner 调用上游);未启用 standalone 时走 OpenClaw host runner,
+   * 该开关被忽略。也不会把增量 token 透传给调用方,只是"以流式协议请求上游后
+   * 等待完整文本",给只接受流式的兼容后端做兼容层用。
+   */
+  stream?: boolean;
+  /**
+   * Ollama thinking 模式（仅对 ollama 系上游有意义）：
+   * true/false 开关，或 "low"|"medium"|"high" 思考力度。
+   * 设置后走 createOllamaThinkFetch 适配层。
+   */
+  ollamaThink?: boolean | "low" | "medium" | "high";
 }
 
 /** Context Offload settings — controls multi-layer context compression. */
@@ -246,6 +262,15 @@ export interface OffloadConfig {
   model?: string;
   /** LLM temperature (default: 0.2) */
   temperature: number;
+  /**
+   * 是否用流式请求(streamText)调用上游(仅 mode="local" 生效)。默认 false(非流式)。
+   * 个别只接受流式请求的 OpenAI 兼容上游需置 true。
+   *
+   * ⚠️ mode="backend"/"client"/"collect" 由远端 offload server 主导调用,
+   * 本地 stream 开关被忽略。也不会把增量 token 透传给调用方,只是"以流式协议
+   * 请求上游后等待完整文本",给只接受流式的兼容后端做兼容层用。
+   */
+  stream?: boolean;
   /** Force-trigger L1 when pending tool pairs >= this threshold (default: 4) */
   forceTriggerThreshold: number;
   /** Custom data directory (absolute path). Default: ~/.openclaw/context-offload */
@@ -481,7 +506,10 @@ export function parseConfig(raw: Record<string, unknown> | undefined): MemoryTda
 
   // --- Store backend ---
   const storeBackendRaw = str(c, "storeBackend") ?? "sqlite";
-  const storeBackend: StoreBackend = storeBackendRaw === "tcvdb" ? "tcvdb" : "sqlite";
+  const storeBackend: StoreBackend =
+    storeBackendRaw === "tcvdb" ? "tcvdb"
+    : storeBackendRaw === "mongodb" ? "mongodb"
+    : "sqlite";
 
   // --- TCVDB config ---
   const tcvdbGroup = obj(c, "tcvdb");
@@ -516,6 +544,7 @@ export function parseConfig(raw: Record<string, unknown> | undefined): MemoryTda
     mode: offloadMode,
     model: optStr(offloadGroup, "model"),
     temperature: num(offloadGroup, "temperature") ?? 0.2,
+    stream: bool(offloadGroup, "stream") ?? false,
     forceTriggerThreshold: num(offloadGroup, "forceTriggerThreshold") ?? 4,
     dataDir: optStr(offloadGroup, "dataDir"),
     defaultContextWindow: num(offloadGroup, "defaultContextWindow") ?? 200000,
@@ -625,6 +654,13 @@ export function parseConfig(raw: Record<string, unknown> | undefined): MemoryTda
       const provider: "openai" | "proxy" =
         rawProvider === "proxy" ? "proxy" : "openai";
       const proxyGroup = obj(llmGroup, "proxy");
+      const rawOllamaThink = llmGroup["ollamaThink"];
+      const ollamaThink: StandaloneLLMOverrideConfig["ollamaThink"] =
+        typeof rawOllamaThink === "boolean"
+          ? rawOllamaThink
+          : rawOllamaThink === "low" || rawOllamaThink === "medium" || rawOllamaThink === "high"
+            ? rawOllamaThink
+            : undefined;
       return {
         enabled: bool(llmGroup, "enabled") ?? false,
         baseUrl: str(llmGroup, "baseUrl") ?? "https://api.openai.com/v1",
@@ -633,6 +669,8 @@ export function parseConfig(raw: Record<string, unknown> | undefined): MemoryTda
         maxTokens: num(llmGroup, "maxTokens") ?? 4096,
         timeoutMs: num(llmGroup, "timeoutMs") ?? 120_000,
         provider,
+        stream: bool(llmGroup, "stream") ?? false,
+        ...(ollamaThink !== undefined ? { ollamaThink } : {}),
         proxy: {
           // 默认 true：走 proxy 时用 memory 系统用户 key 作为 Authorization。
           useMemorySystemUserKey: bool(proxyGroup, "useMemorySystemUserKey") ?? true,

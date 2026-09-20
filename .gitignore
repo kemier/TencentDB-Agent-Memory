@@ -147,3 +147,10 @@ run/*.pid
 run/.admin-key
 run/tdai-gateway.yaml
 run/proxy.config.yaml
+
+# L0 mongo bench generated reports
+MemoryCore/scripts/bench-l0-mongo/reports/
+
+# Local-only: parity snapshots & runtime configs (never commit)
+MemoryProxy/.archive-tmp/
+z_config/

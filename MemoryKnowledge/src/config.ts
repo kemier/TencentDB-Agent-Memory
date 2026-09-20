@@ -36,6 +36,11 @@ export interface LlmConfig {
   maxTokens: number;
   /** LLM request timeout in ms. Defaults to 1200000 (20min) — reasoning 模型需要更长时间。 */
   timeoutMs: number;
+  /**
+   * 是否用流式请求(streamText)调用上游。默认 false(非流式)。
+   * 个别只接受流式请求的兼容上游需置 true。per-instance binding 不覆盖此字段(部署级开关)。
+   */
+  stream?: boolean;
 }
 
 export interface ClickHouseTelemetryConfig {
@@ -54,6 +59,14 @@ export interface ClickHouseTelemetryConfig {
 export interface ServiceConfig {
   /** HTTP server port. */
   port: number;
+  /**
+   * Service-to-service auth.
+   * serviceKey 为空 = 不启用鉴权（向后兼容本地/开发部署）；
+   * 非空 = /v3 下除只读白名单外的端点均要求 `Authorization: Bearer <serviceKey>`。
+   */
+  auth: {
+    serviceKey: string;
+  };
   /** Data root directory for knowledge assets (git clones, wiki dirs, SQLite). */
   dataDir: string;
   /** SQLite database file path. */
@@ -148,6 +161,9 @@ export function loadConfig(): ServiceConfig {
 
   return {
     port: envInt("PORT", 8421),
+    auth: {
+      serviceKey: env("KNOWLEDGE_SERVICE_KEY", ""),
+    },
     dataDir: expandHome(env("KNOWLEDGE_DATA_DIR", "./data")),
     dbPath: expandHome(env("KNOWLEDGE_DB_PATH", "./data/knowledge.db")),
     logLevel: env("LOG_LEVEL", "debug"),
@@ -164,6 +180,7 @@ export function loadConfig(): ServiceConfig {
       baseUrl: env("LLM_BASE_URL", ""),
       maxTokens: envInt("LLM_MAX_TOKENS", 32768),
       timeoutMs: envInt("LLM_TIMEOUT_MS", 1200000),
+      stream: process.env.LLM_STREAM === "true",
     },
   };
 }
