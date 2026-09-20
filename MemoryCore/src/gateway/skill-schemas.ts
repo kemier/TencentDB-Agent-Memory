@@ -114,7 +114,10 @@ export const patchRequestSchema = z.object({
 export const deleteRequestSchema = z.object({
   ...idFieldsShape,
   skill_id: z.string().min(1),
-  expected_version: z.number().int().min(1),
+  // 向后兼容：旧客户端（含 Panel web）仍会带 expected_version 乐观锁。
+  // v2.0.2-beta.1 起 core 改为无条件物理删除（DeleteInput 不再消费该字段），
+  // 故此处保留为 optional 仅为不破坏存量调用方；新客户端可省略。
+  expected_version: z.number().int().min(1).optional(),
 }).superRefine(refineAgentNeedsTeam);
 
 export const getRequestSchema = z.object({
