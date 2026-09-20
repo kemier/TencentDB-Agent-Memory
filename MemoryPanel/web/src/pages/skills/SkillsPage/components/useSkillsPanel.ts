@@ -392,6 +392,54 @@ export function useSkillsPanel() {
     [visibilityMap],
   );
 
+  // ============================
+  // 一键共享：把当前列表中所有非 team（私密）的 skill 批量切成 team 可见。
+  // ============================
+  // 没有 batch 接口，逐条 assetsApi.update；仅 fixed tab（某 agent 的固定
+  // 资产）下出现，操作对象 = skillsWithCache 里 visibility !== 'team' 的条目。
+  // skill_id === asset_id（见 handleToggleVisibility）。跳过已是 team 的，
+  // 减少无效请求与乐观锁竞争。局部更新 visibilityMap 避免 flicker，结束后
+  // 统一 refresh 拉齐。
+  const [shareAllLoading, setShareAllLoading] = useState(false);
+  const handleShareAll = useCallback(async () => {
+    if (!activeTeamId) return;
+    // 仅当前列表中 owner 是自己、且未共享的 skill（与单项切换的权限口径一致：
+    // 只有 owner 能改自己的 visibility）。owner_user_id 缺失的兜底为可操作，
+    // 由后端鉴权兜底拒绝。
+    const targets = skillsWithCache.filter((s) => {
+      const vis = visibilityMap[s.skill_id];
+      return vis !== 'team' && (!myUserId || s.owner_user_id === myUserId);
+    });
+    if (targets.length === 0) return;
+    setShareAllLoading(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      // 顺序更新：visibility 写无乐观锁，但避免并发打爆后端；单项失败不中断。
+      for (const s of targets) {
+        try {
+          await assetsApi.update(s.skill_id, { visibility: 'team' });
+          setVisibilityMap((prev) => ({ ...prev, [s.skill_id]: 'team' }));
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      if (fail === 0) {
+        tea.notify.success(
+          t('skills.shareAll.notify.success', { count: ok }),
+        );
+      } else {
+        tea.notify.warning(
+          t('skills.shareAll.notify.partial', { ok, fail }),
+        );
+      }
+      void refresh();
+    } finally {
+      setShareAllLoading(false);
+    }
+  }, [activeTeamId, skillsWithCache, visibilityMap, myUserId, refresh, t]);
+
   // 列表加载态（供左侧 AssetListPanel 使用）。
   // fixed tab 依赖 agent，需覆盖三段"数据未就绪"期，否则会先闪空态：
   //   1) agentsLoading：agent 列表请求中
@@ -426,6 +474,7 @@ export function useSkillsPanel() {
     deleteLoading,
     exportLoading,
     visibilityMap,
+    shareAllLoading,
     // cache
     skillsWithCache,
     preloadSkillDetail,
@@ -436,6 +485,7 @@ export function useSkillsPanel() {
     handleDelete,
     handleExport,
     handleToggleVisibility,
+    handleShareAll,
     selectedSkill,
   };
 }

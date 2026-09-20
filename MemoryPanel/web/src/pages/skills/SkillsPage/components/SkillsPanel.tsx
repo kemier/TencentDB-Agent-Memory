@@ -94,6 +94,7 @@ export default function SkillsPanel({
     deleteLoading,
     exportLoading,
     visibilityMap,
+    shareAllLoading,
     skills,
     // cache
     skillsWithCache,
@@ -102,6 +103,7 @@ export default function SkillsPanel({
     handleDelete,
     handleExport,
     handleToggleVisibility,
+    handleShareAll,
     selectedSkill,
   } = store;
 
@@ -174,6 +176,40 @@ export default function SkillsPanel({
                 </Button>
               );
             })()}
+            {tab === 'fixed' &&
+              (() => {
+                // 一键共享当前选中 agent 的全部私密 skill：仅 fixed tab 出现，
+                // 与单项「共享/私密」Segment 同口径——只改 owner 是自己的、且
+                // 当前非 team 的条目。无可共享项时禁用并提示。
+                const shareable = skillsWithCache.filter((s) => {
+                  const vis = visibilityMap[s.skill_id];
+                  return vis !== 'team' && (!myUserId || s.owner_user_id === myUserId);
+                }).length;
+                const shareAllTooltip =
+                  !selectedAgent
+                    ? t('skills.shareAll.tooltip.noAgent')
+                    : shareable === 0
+                      ? t('skills.shareAll.tooltip.none')
+                      : t('skills.shareAll.tooltip.some', { count: shareable });
+                return (
+                  <Button
+                    onClick={async () => {
+                      const ok = await tea.confirm({
+                        message: t('skills.shareAll.confirm'),
+                        description: t('skills.shareAll.confirm.desc', { count: shareable }),
+                        okText: t('skills.shareAll.okText'),
+                        cancelText: t('skills.shareAll.cancelText'),
+                      });
+                      if (ok) void handleShareAll();
+                    }}
+                    disabled={!selectedAgent || shareable === 0}
+                    loading={shareAllLoading}
+                    tooltip={shareAllTooltip}
+                  >
+                    {t('skills.shareAll')}
+                  </Button>
+                );
+              })()}
             <Button
               type="primary"
               onClick={() => setShowImport(true)}
