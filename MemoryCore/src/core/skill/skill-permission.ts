@@ -29,8 +29,12 @@ export class SkillPermissionError extends Error {
  *
  * team_id + agent_id 才唯一确定一个 agent 的 ownership——
  * 不同 team 下可能出现相同的 agent_id 值，仅校验 agent_id 不够安全。
+ *
+ * 放宽：若 caller 传入的 userId 与 headRow.user_id 相同（同一用户、不同 agent），
+ * 且 headRow 是 team-visible（team_id 非空），则允许更新——支持同一用户在多个
+ * agent 间共享 team-visible skill 的更新权。
  */
-export function assertOwner(headRow: Skill, agentId: string, teamId?: string): void {
+export function assertOwner(headRow: Skill, agentId: string, teamId?: string, userId?: string): void {
   if (teamId && headRow.team_id !== teamId) {
     throw new SkillPermissionError(
       "SKILL_NOT_OWNER",
@@ -38,6 +42,11 @@ export function assertOwner(headRow: Skill, agentId: string, teamId?: string): v
     );
   }
   if (headRow.owner_agent_id !== agentId) {
+    // Same-user cross-agent relaxation: if the caller's user_id matches the
+    // skill's user_id and the skill is team-scoped, allow the update.
+    if (userId && userId === headRow.user_id && headRow.team_id) {
+      return;
+    }
     throw new SkillPermissionError(
       "SKILL_NOT_OWNER",
       `agent ${agentId} is not the owner (owner=${headRow.owner_agent_id})`,

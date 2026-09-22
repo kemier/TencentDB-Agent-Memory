@@ -308,7 +308,7 @@ export class SkillCore {
 
   async update(input: UpdateInput): Promise<Skill> {
     const head = await this.requireHead(input.skill_id, input.team_id);
-    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id);
+    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id, input.user_id);
     assertVersionFreshWrap(head, input.expected_version);
 
     const file = this.parseAndValidate(input.content);
@@ -333,7 +333,7 @@ export class SkillCore {
 
   async patch(input: PatchInput): Promise<Skill> {
     const head = await this.requireHead(input.skill_id, input.team_id);
-    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id);
+    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id, input.user_id);
     assertVersionFreshWrap(head, input.expected_version);
 
     // count occurrences
@@ -379,7 +379,7 @@ export class SkillCore {
     const head = await this.store.getHeadIncludingArchived(input.skill_id, input.team_id);
     if (input.team_id) assertTeamMatchWrap(head, input.team_id);
     if (!head) throw new SkillCoreError("SKILL_NOT_FOUND");
-    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id);
+    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id, input.user_id);
 
     // 物理删除所有版本 + 清 storage + 汇总上报 shark(-N)
     const deleted = await this.versioning.deleteSkill(input.skill_id, input.team_id);
@@ -397,7 +397,7 @@ export class SkillCore {
 
   async writeFiles(input: WriteFilesInput): Promise<Skill> {
     const head = await this.requireHead(input.skill_id, input.team_id);
-    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id);
+    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id, input.user_id);
     assertVersionFreshWrap(head, input.expected_version);
 
     try {
@@ -418,7 +418,7 @@ export class SkillCore {
 
   async removeFiles(input: RemoveFilesInput): Promise<Skill> {
     const head = await this.requireHead(input.skill_id, input.team_id);
-    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id);
+    if (input.agent_id) assertOwnerWrap(head, input.agent_id, input.team_id, input.user_id);
     assertVersionFreshWrap(head, input.expected_version);
 
     // 过滤出真实存在于 head manifest 中的 path（避免无效的资源变更触发空 v+1）
@@ -703,8 +703,8 @@ export class SkillCore {
 //  内部小工具
 // ═════════════════════════════════════════════════════════════════════
 
-function assertOwnerWrap(head: Skill, agentId: string, teamId?: string): void {
-  try { assertOwner(head, agentId, teamId); }
+function assertOwnerWrap(head: Skill, agentId: string, teamId?: string, userId?: string): void {
+  try { assertOwner(head, agentId, teamId, userId); }
   catch (e) {
     if (e instanceof SkillPermissionError) throw new SkillCoreError(e.code as SkillCoreErrorCode, e.message);
     throw e;
