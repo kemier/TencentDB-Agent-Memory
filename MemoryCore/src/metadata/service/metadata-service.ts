@@ -328,6 +328,25 @@ export class MetadataService {
     return out;
   }
 
+  /**
+   * 批量拉取多个 asset 的 ACL 记录，返回 asset_id → records 的映射。
+   *
+   * 用于 listAccessibleAssets：旧实现在逐条权限判定时每条都单独
+   * allAclRecords(assetId)（真正的 N+1，每条 1~N 次 store 往返）。改为先把
+   * 「需要查 ACL」的少数 asset 收集起来，再一次性批量拉取，把 N 次往返压成
+   * 常数级。判定逻辑与单条 checkAssetPermission 完全一致。
+   */
+  private async allAclRecordsByAssets(assetIds: string[]): Promise<Map<string, AclEntity[]>> {
+    const byAsset = new Map<string, AclEntity[]>();
+    const seen = new Set<string>();
+    for (const assetId of assetIds) {
+      if (seen.has(assetId)) continue;
+      seen.add(assetId);
+      byAsset.set(assetId, await this.allAclRecords(assetId));
+    }
+    return byAsset;
+  }
+
   /** internal：按实例分页列出用户（含 system_admin，不脱敏）。 */
   async listUsersByInstance(
     instanceId: string,
@@ -1669,7 +1688,17 @@ export class MetadataService {
     const result: AssetEntity[] = [];
     const seen = new Set<string>();
 
+    // 需要查 ACL 的 asset（visibility=restricted 的非 admin，或 role-default
+    // 未覆盖 action 的行）。先纯内存跑一遍 checkPermission（asset 行已在手，
+    // membership 每 team 只查一次）；仅对「走到 ACL 步骤」的少数行批量补查
+    // ACL，把旧实现的逐条 allAclRecords（N+1 store 往返）压成常数级。
+    const pendingAcl: { asset: AssetEntity; membership: TeamMemberEntity }[] = [];
+
     for (const teamId of teamIds) {
+      // membership 在同一 team 内对该 user 恒定 —— 每 team 只查一次，而非每 asset。
+      const membership = await this.store.getTeamMember(teamId, userId);
+      if (!membership || membership.status !== "active") continue;
+
       let offset = 0;
       const limit = 100;
       while (true) {
@@ -1681,14 +1710,23 @@ export class MetadataService {
         for (const asset of page.items) {
           if (seen.has(asset.asset_id)) continue;
           if (FILTERED_STATUSES.includes(asset.status)) continue;
-          // visibility 白名单过滤（在权限判定前先剔除，节省 checkAssetPermission 开销）
+          // visibility 白名单过滤（在权限判定前先剔除，减少后续判定）
           if (visFilter && !visFilter.has(asset.visibility)) continue;
-          const perm = await this.checkAssetPermission({
-            user_id: userId,
-            asset_id: asset.asset_id,
+
+          const perm = checkPermission({
+            user: { user_id: userId },
+            asset,
+            membership,
             action,
-            agent_id: params.agent_id,
+            aclRecords: [],
+            agentId: params.agent_id,
+            logger: this.logger,
           });
+          // 走到 ACL 步骤但尚未加载 → 记下，稍后批量补查后重判。
+          if (perm.allowed === false && perm.reason === "no_permission") {
+            pendingAcl.push({ asset, membership });
+            continue;
+          }
           if (perm.allowed) {
             seen.add(asset.asset_id);
             result.push(asset);
@@ -1696,6 +1734,28 @@ export class MetadataService {
         }
         if (offset + page.items.length >= page.total) break;
         offset += limit;
+      }
+    }
+
+    // 批量补查 ACL 后重判 pendingAcl 中的少数行。
+    if (pendingAcl.length > 0) {
+      const pendingIds = pendingAcl.map((p) => p.asset.asset_id);
+      const aclMap = await this.allAclRecordsByAssets(pendingIds);
+      for (const { asset, membership } of pendingAcl) {
+        if (seen.has(asset.asset_id)) continue;
+        const perm = checkPermission({
+          user: { user_id: userId },
+          asset,
+          membership,
+          action,
+          aclRecords: aclMap.get(asset.asset_id) ?? [],
+          agentId: params.agent_id,
+          logger: this.logger,
+        });
+        if (perm.allowed) {
+          seen.add(asset.asset_id);
+          result.push(asset);
+        }
       }
     }
 
