@@ -440,16 +440,25 @@ export function useSkillsPanel() {
     let ok = 0;
     let fail = 0;
     try {
-      // 顺序更新：visibility 写无乐观锁，但避免并发打爆后端；单项失败不中断。
-      for (const s of targets) {
-        try {
-          await assetsApi.update(s.skill_id, { visibility: 'team' });
-          setVisibilityMap((prev) => ({ ...prev, [s.skill_id]: 'team' }));
-          ok++;
-        } catch {
-          fail++;
+      // 一次批量请求替换旧的逐条 asset/update 串行循环（N 次往返 → 1 次）。
+      // 服务端逐条做 owner-or-team-admin 鉴权，per-id 返回成功/失败，
+      // 部分失败不中断。据此局部刷新 visibility 徽章。
+      const res = await assetsApi.batchUpdateVisibility(
+        targets.map((s) => s.skill_id),
+        'team',
+      );
+      ok = res.updated_ids.length;
+      fail = res.failed.length;
+      const updatedSet = new Set(res.updated_ids);
+      const failedSet = new Set(res.failed.map((f) => f.id));
+      setVisibilityMap((prev) => {
+        const next = { ...prev };
+        for (const s of targets) {
+          if (updatedSet.has(s.skill_id)) next[s.skill_id] = 'team';
+          else if (failedSet.has(s.skill_id)) delete next[s.skill_id];
         }
-      }
+        return next;
+      });
       if (fail === 0) {
         tea.notify.success(
           t('skills.shareAll.notify.success', { count: ok }),
@@ -460,6 +469,8 @@ export function useSkillsPanel() {
         );
       }
       void refresh();
+    } catch (err) {
+      tea.notify.error(err);
     } finally {
       setShareAllLoading(false);
     }

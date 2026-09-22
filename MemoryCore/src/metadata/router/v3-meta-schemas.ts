@@ -311,6 +311,17 @@ export const assetUpdateSchema = z.object({
   metadata_json: z.string().optional(),
 });
 export const assetDeleteSchema = z.object({ asset_ids: idList });
+/**
+ * 批量更新可见性（面板「一键共享」用）。
+ *
+ * 旧实现前端逐条 asset/update（N 次往返，58 个 skill ≈ 58 次 HTTP）。
+ * 改为一次请求：`asset_ids` 批量 + 单一 `visibility`，服务端逐条做
+ * owner-or-team-admin 鉴权，返回 per-id 成功/失败（部分失败不中断整批）。
+ */
+export const assetBatchUpdateVisibilitySchema = z.object({
+  asset_ids: idList,
+  visibility,
+});
 export const assetListSchema = z.object({
   team_id: nonEmpty,
   asset_type: assetType.optional(),
@@ -505,6 +516,7 @@ export const V3_SCHEMAS = {
   "/v3/meta/asset/create": assetCreateSchema,
   "/v3/meta/asset/get": assetGetSchema,
   "/v3/meta/asset/update": assetUpdateSchema,
+  "/v3/meta/asset/batch-update-visibility": assetBatchUpdateVisibilitySchema,
   "/v3/meta/asset/delete": assetDeleteSchema,
   "/v3/meta/asset/list": assetListSchema,
   "/v3/meta/asset/list-accessible": assetListAccessibleSchema,

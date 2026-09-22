@@ -2038,6 +2038,37 @@ export class MetadataService {
     return this.updateAsset(assetId, patch);
   }
 
+  /**
+   * 批量更新可见性（面板「一键共享」）。
+   *
+   * 鉴权口径与单条 updateAssetForCaller 完全一致：逐条
+   * assertCallerIsAssetOwnerOrTeamAdmin（owner 或该资产所在 team 的 admin）。
+   * 逐条失败不中断整批 —— 成功/失败分别收集后返回，前端据此局部刷新。
+   *
+   * 返回形状对齐 BatchDeleteResult：{ updated_ids, failed }。
+   */
+  async batchUpdateAssetVisibilityForCaller(
+    assetIds: string[],
+    visibility: AssetEntity["visibility"],
+    ctx: V3AuthContext,
+  ): Promise<{ updated_ids: string[]; failed: Array<{ id: string; reason: string }> }> {
+    const updated_ids: string[] = [];
+    const failed: Array<{ id: string; reason: string }> = [];
+    for (const assetId of assetIds) {
+      try {
+        await this.assertCallerIsAssetOwnerOrTeamAdmin(ctx, assetId);
+        await this.updateAsset(assetId, { visibility });
+        updated_ids.push(assetId);
+      } catch (err) {
+        failed.push({
+          id: assetId,
+          reason: err instanceof MetadataError ? err.code : "update_failed",
+        });
+      }
+    }
+    return { updated_ids, failed };
+  }
+
   async deleteAssetsForCaller(assetIds: string[], ctx: V3AuthContext): Promise<BatchDeleteResult> {
     // 已不存在的 id 跳过 owner 校验（与 store 层幂等成功对齐）；仍存在的须为 owner。
     for (const assetId of assetIds) {

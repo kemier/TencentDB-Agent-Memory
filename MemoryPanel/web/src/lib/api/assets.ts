@@ -62,6 +62,19 @@ export const assetsApi = {
     data: Partial<{ name: string; description: string; status: AssetStatus; visibility: string }>
   ) => metaPost<Asset>('asset/update', { asset_id: assetId, ...data }),
 
+  /**
+   * 批量更新可见性（「一键共享」用）。一次请求替换 N 次 asset/update。
+   * 返回 per-id 成功/失败（部分失败不中断），前端据此局部刷新。
+   */
+  batchUpdateVisibility: (
+    assetIds: string[],
+    visibility: string,
+  ) =>
+    metaPost<{ updated_ids: string[]; failed: Array<{ id: string; reason: string }> }>(
+      'asset/batch-update-visibility',
+      { asset_ids: assetIds, visibility },
+    ),
+
   /** 删除资产（meta asset/delete → 物理删除行） */
   delete: async (assetId: string) => {
     await metaPost<{ deleted_ids: string[] }>('asset/delete', { asset_ids: [assetId] });

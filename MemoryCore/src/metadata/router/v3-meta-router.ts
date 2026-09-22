@@ -261,6 +261,9 @@ const routeTable: Record<string, Handler> = {
     const { asset_id, ...patch } = d;
     return s.updateAssetForCaller(asset_id, patch, c);
   }),
+  [`${V3_PREFIX}/asset/batch-update-visibility`]: bind(S.assetBatchUpdateVisibilitySchema, (d, c, s) =>
+    s.batchUpdateAssetVisibilityForCaller(d.asset_ids, d.visibility, c),
+  ),
   [`${V3_PREFIX}/asset/delete`]: bind(S.assetDeleteSchema, (d, c, s) => s.deleteAssetsForCaller(d.asset_ids, c)),
   [`${V3_PREFIX}/asset/list`]: bind(S.assetListSchema, (d, _c, s) => {
     const { team_id, limit, offset, ...filter } = d;
