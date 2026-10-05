@@ -1252,18 +1252,20 @@ async function handleAtomicCount(body: unknown, _auth: V2AuthContext, requestId:
 async function handleAtomicSearch(body: unknown, auth: V2AuthContext, requestId: string, deps: V2RouterDeps): Promise<ApiResponseEnvelope> {
   const parsed = atomicSearchRequestSchema.safeParse(body);
   if (!parsed.success) return errorEnvelope(400, formatZodError(parsed.error), requestId);
-  const { query, type } = parsed.data;
+  const { query, type, scope } = parsed.data;
   const limit = parsed.data.limit ?? 5;
 
   const tStart = performance.now();
   // L1 召回为 agent 维度（跨 session）：filter 只取 team/user/agent/task，
   // **不带 sessionId**，否则会把其它 session 写入的 L1 记忆过滤掉，导致
   // 新会话里召不回历史记忆（与 conversation/search 的处理保持一致）。
+  // scope="team" 时省略 agentId，跨 agent 召回（与 skill listing/search 一致）。
   const iso = deps.requestIsolation;
+  const isTeamScope = scope === "team";
   const searchFilter = iso ? {
     ...(iso.teamId ? { teamId: iso.teamId } : {}),
     ...(iso.userId ? { userId: iso.userId } : {}),
-    ...(iso.agentId ? { agentId: iso.agentId } : {}),
+    ...(!isTeamScope && iso.agentId ? { agentId: iso.agentId } : {}),
     ...(iso.taskId ? { taskId: iso.taskId } : {}),
     // 不传 sessionId：L1 召回应跨 session（agent 维度）
   } : undefined;

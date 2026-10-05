@@ -493,6 +493,10 @@ export type AtomicSearchRequest = (IdFields & {
      * @type string | undefined, date-time
     */
     time_end?: string;
+    /**
+     * @type "team" | undefined
+     */
+    scope?: "team";
 });
 
 export type AtomicSearchHit = (AtomicDetail & {
