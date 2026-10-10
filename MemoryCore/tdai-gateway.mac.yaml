@@ -21,11 +21,16 @@ data:
   baseDir: "~/.memory-tencentdb/memory-tdai"
 
 llm:
-  baseUrl: "http://127.0.0.1:11434/v1"
+  # Route through responses-vllm-proxy (:8317) so memory + ACP share ONE model
+  # (qwen3.8-4b-distill on Mac Ollama) and one concurrency gate. The proxy's
+  # /v1/chat/completions handler rewrites mac-provider calls to Ollama-native
+  # /api/chat with think:false (mirrors ollama-openai-fetch.ts), so thinking is
+  # suppressed even though the gateway's own fetch wrapper is skipped here
+  # (baseUrl is no longer :11434). model MUST be the proxy alias, not the
+  # backend name — the alias map keys on aliases, else it falls to default.
+  baseUrl: "http://127.0.0.1:8317/v1"
   apiKey: "local"
-  model: "qwen3.8-4b-distill"
-  # Qwen3.8 distill is a thinking model; disable via native Ollama /api/chat think=false
-  # (OpenAI-compat /v1/chat/completions ignores think and burns tokens on reasoning).
+  model: "qwen38-4b"
   ollamaThink: false
   maxTokens: 8192
   timeoutMs: 300000
@@ -40,7 +45,8 @@ memory:
     maxMemoriesPerSession: 20
     # L1 shares distill with L2 (inherits llm.ollamaThink: false). One resident
     # weight avoids 7b+distill RAM thrash; roll back to qwen2.5:7b if under-extract.
-    model: "qwen3.8-4b-distill"
+    # Alias (not backend name) — the proxy alias map keys on aliases.
+    model: "qwen38-4b"
 
   persona:
     triggerEveryN: 50
