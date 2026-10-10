@@ -90,6 +90,11 @@ skill:
   enabled: true
   extraction:
     enabled: true
+    # Skill review 输出 = tool-call args里 SKILL.md 全文，远超其它 stage。
+    # 继承 llm.maxTokens=8192 时 SKILL.md 里 skill_create(content=…) 被截
+    # 中字符串 → Ollama-native tool-call JSON parser 报 "can't find closing
+    # '}'" → 400 → 抽取 DLQ。模型 ctx 32768, 16384 输出留头room。
+    maxTokens: 16384
 
 observability:
   otel:

@@ -86,7 +86,7 @@ function resolveSessionSecret(identityStorePath: string): string {
 }
 
 export interface PanelConfig {
-  server: { host: string; port: number };
+  server: { host: string; port: number; aliasPort: number };
   metadataInstancesConfig: string;
   metadataRemoteTimeoutMs: number;
   ui: { distDir: string };
@@ -217,6 +217,9 @@ export function loadPanelConfig(): PanelConfig {
     server: {
       host: env('HOST', '0.0.0.0'),
       port: envInt('PORT', 8123),
+      // Documented default is 8123; Mac start-all binds 8125. Listen on both
+      // so bookmarks and INSTALL notes to :8123 still reach this process.
+      aliasPort: envInt('PORT_ALIAS', 0),
     },
     metadataInstancesConfig: env('METADATA_INSTANCES_CONFIG', './config/metadata-instances.json'),
     metadataRemoteTimeoutMs: envInt('METADATA_REMOTE_TIMEOUT_MS', 15_000),

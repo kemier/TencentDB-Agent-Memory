@@ -9,20 +9,26 @@ export function main(): void {
   const deps = buildPanelDeps(config);
   const app = buildPanelApp(deps);
 
-  serve(
-    { fetch: app.fetch, hostname: config.server.host, port: config.server.port },
-    (info) => {
-      deps.logger.info('panel listening', {
-        url: `http://${config.server.host}:${info.port}`,
-        mode: 'stateless',
-        metadataApi: '/api/v1/meta/*',
-        instancesConfig: config.metadataInstancesConfig,
-      });
-    },
-  ).on('error', (err: NodeJS.ErrnoException) => {
-    deps.logger.error('panel listen failed', { code: err.code, message: err.message });
-    process.exit(1);
-  });
+  const listen = (port: number, fatal: boolean): void => {
+    serve(
+      { fetch: app.fetch, hostname: config.server.host, port },
+      (info) => {
+        deps.logger.info('panel listening', {
+          url: `http://${config.server.host}:${info.port}`,
+          mode: 'stateless',
+          metadataApi: '/api/v1/meta/*',
+          instancesConfig: config.metadataInstancesConfig,
+        });
+      },
+    ).on('error', (err: NodeJS.ErrnoException) => {
+      deps.logger.error('panel listen failed', { port, code: err.code, message: err.message });
+      if (fatal) process.exit(1);
+    });
+  };
+  listen(config.server.port, true);
+  if (config.server.aliasPort > 0 && config.server.aliasPort !== config.server.port) {
+    listen(config.server.aliasPort, false);
+  }
 
   // Best-effort: ensure per-instance knowledge-service LLM bindings (design 009 §4.2).
   // Non-blocking; failures are logged and left for manual recovery.
