@@ -21,16 +21,19 @@ data:
   baseDir: "~/.memory-tencentdb/memory-tdai"
 
 llm:
-  # Route through responses-vllm-proxy (:8317) so memory + ACP share ONE model
-  # (qwen3.8-4b-distill on Mac Ollama) and one concurrency gate. The proxy's
-  # /v1/chat/completions handler rewrites mac-provider calls to Ollama-native
-  # /api/chat with think:false (mirrors ollama-openai-fetch.ts), so thinking is
-  # suppressed even though the gateway's own fetch wrapper is skipped here
-  # (baseUrl is no longer :11434). model MUST be the proxy alias, not the
-  # backend name — the alias map keys on aliases, else it falls to default.
+  # Route through responses-vllm-proxy (:8317) so memory + ACP subagents share
+  # ONE model (qwen3:30b-a3b on Mac Ollama) and one concurrency gate. Using the
+  # SAME model as the subagents means switching between a subagent turn and a
+  # memory-extraction turn never evicts (purges) the resident weights — Ollama
+  # keeps one llama-server warm. The proxy's /v1/chat/completions handler
+  # rewrites mac-provider calls to Ollama-native /api/chat with think:false
+  # (mirrors ollama-openai-fetch.ts), so thinking is suppressed even though the
+  # gateway's own fetch wrapper is skipped here (baseUrl is no longer :11434).
+  # model MUST be the proxy alias, not the backend name — the alias map keys on
+  # aliases, else it falls to the default (Ubuntu) provider.
   baseUrl: "http://127.0.0.1:8317/v1"
   apiKey: "local"
-  model: "qwen38-4b"
+  model: "qwen30b-a3b"
   ollamaThink: false
   maxTokens: 8192
   timeoutMs: 300000
@@ -43,10 +46,10 @@ memory:
     enabled: true
     enableDedup: true
     maxMemoriesPerSession: 20
-    # L1 shares distill with L2 (inherits llm.ollamaThink: false). One resident
-    # weight avoids 7b+distill RAM thrash; roll back to qwen2.5:7b if under-extract.
-    # Alias (not backend name) — the proxy alias map keys on aliases.
-    model: "qwen38-4b"
+    # L1 shares the SAME model as llm + subagents (qwen3:30b-a3b) so a subagent
+    # turn and a memory-extraction turn keep ONE llama-server warm — no weight
+    # purge on switch. Inherits llm.ollamaThink: false. Alias (not backend name).
+    model: "qwen30b-a3b"
 
   persona:
     triggerEveryN: 50
