@@ -35,6 +35,23 @@ import type { LLMUsage } from "../../core/report/metric-tracking-runner.js";
 
 const TAG = "[memory-tdai] [standalone-runner]";
 
+/** Include the upstream body and zod issues. `Invalid JSON response` alone cannot be diagnosed. */
+function describeLlmError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const extra: string[] = [];
+  const withBody = err as Error & { responseBody?: unknown; cause?: unknown };
+  if (typeof withBody.responseBody === "string" && withBody.responseBody.length > 0) {
+    extra.push(`body=${withBody.responseBody.slice(0, 500)}`);
+  }
+  const cause = withBody.cause;
+  if (cause && typeof cause === "object" && "issues" in cause) {
+    extra.push(`issues=${JSON.stringify((cause as { issues: unknown }).issues).slice(0, 500)}`);
+  } else if (cause instanceof Error && cause.message) {
+    extra.push(`cause=${cause.message.slice(0, 300)}`);
+  }
+  return extra.length > 0 ? `${err.message} (${extra.join(" ")})` : err.message;
+}
+
 // Max iterations in the tool-call loop to prevent infinite loops
 const MAX_TOOL_ITERATIONS = 20;
 
@@ -489,7 +506,7 @@ export class StandaloneLLMRunner implements LLMRunner {
       return text;
     } catch (err) {
       const totalMs = Date.now() - runStartMs;
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errMsg = describeLlmError(err);
       this.logger?.error(`${TAG} run() failed after ${totalMs}ms: ${errMsg}`);
 
       if (params.instanceId) {
