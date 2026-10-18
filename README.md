@@ -1,3 +1,5 @@
+> Public release. Published publicly under the MIT License (see [LICENSE](LICENSE)).
+
 
 <div align="center">
 
