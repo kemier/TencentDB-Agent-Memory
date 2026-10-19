@@ -37,7 +37,12 @@ llm:
   model: "qwen36-35b"
   ollamaThink: false
   maxTokens: 8192
-  timeoutMs: 300000
+  # MUST exceed the proxy's MODEL_THROTTLE_TIMEOUT (600s in responses-vllm-proxy
+  # src/main.rs). The proxy serializes qwen3.6:35b (limit=1) and WAITS for the
+  # GPU slot rather than failing; if this timeout were shorter, the gateway
+  # would abort first and dead-letter the extraction (_tasks_dlq.json) instead
+  # of letting the queue drain. 660s = 600s throttle budget + 60s margin.
+  timeoutMs: 660000
 
 memory:
   capture:
